@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chess Game</title>
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ================================================================== -->
+  <!-- Start screen                                                       -->
+  <!-- ================================================================== -->
+  <section class="screen screen--home" id="screen-home">
+    <div class="home">
+      <header class="hero">
+        <div class="hero__mark" aria-hidden="true"><span class="glyph">&#9822;</span></div>
+        <div class="hero__text">
+          <h1>Chess Game</h1>
+          <p>Play the engine on this computer, or open a room and share the code with a friend on your network.</p>
+        </div>
+      </header>
+
+      <div class="themes" id="themes" role="group" aria-label="Colour theme">
+        <span class="themes__label">Theme</span>
+      </div>
+
+      <div class="home-tools">
+        <button type="button" class="button button--quiet" id="btn-settings-home">
+          <span class="button__glyph" aria-hidden="true">&#9881;</span> Settings
+        </button>
+      </div>
+
+      <div class="columns">
+        <!-- ------------------------------------------------ computer -->
+        <div class="card card--grow">
+          <div class="card__head">
+            <h2>Play with computer</h2>
+            <p>Choose a strength, then the colour you want.</p>
+          </div>
+
+          <div class="field field--name">
+            <label for="player-name">Your name</label>
+            <input type="text" id="player-name" maxlength="20" placeholder="e.g. Alex" autocomplete="off">
+          </div>
+
+          <div class="label-row">
+            <span class="label-row__text">Strength</span>
+          </div>
+          <div class="levels" id="level-list" role="radiogroup" aria-label="Difficulty"></div>
+
+          <div class="label-row">
+            <span class="label-row__text">Your colour</span>
+          </div>
+          <div class="side-picker" role="radiogroup" aria-label="Your colour">
+            <button type="button" class="side-option is-active" data-colour="white">
+              <span class="side-option__piece glyph glyph--white">&#9812;</span>
+              <span class="side-option__label">White</span>
+              <span class="side-option__hint">You move first</span>
+            </button>
+            <button type="button" class="side-option" data-colour="black">
+              <span class="side-option__piece glyph">&#9818;</span>
+              <span class="side-option__label">Black</span>
+              <span class="side-option__hint">The engine starts</span>
+            </button>
+          </div>
+
+          <button type="button" class="button button--primary button--lg button--wide" id="btn-play-computer">
+            Start game
+          </button>
+        </div>
+
+        <!-- -------------------------------------------------- friend -->
+        <div class="card card--friend">
+          <div class="card__head">
+            <h2>Play with friend</h2>
+            <p>Both of you need to be on the same network.</p>
+          </div>
+
+          <div class="friend-block">
+            <h3 class="friend-block__title"><span class="dot"></span>Host a room</h3>
+            <p class="friend-block__hint">We will give you a four digit code to read out.</p>
+            <button type="button" class="button button--ghost button--wide" id="btn-host">Open a room</button>
+          </div>
+
+          <div class="divider"><span>or</span></div>
+
+          <div class="friend-block">
+            <h3 class="friend-block__title"><span class="dot dot--alt"></span>Join a room</h3>
+            <p class="friend-block__hint">Type the code your friend read out.</p>
+            <div class="code-field">
+              <input type="text" id="join-code" maxlength="4" inputmode="numeric" placeholder="0000"
+                     aria-label="Room code" autocomplete="off">
+            </div>
+            <button type="button" class="button button--ghost button--wide" id="btn-join">Find room</button>
+
+            <details class="direct">
+              <summary>Room not showing up?</summary>
+              <div class="direct__row">
+                <input type="text" id="join-host" placeholder="Host address, e.g. 192.168.1.24" autocomplete="off">
+              </div>
+              <button type="button" class="button button--quiet button--wide" id="btn-join-direct">
+                Connect to that address
+              </button>
+            </details>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Game mode: the board owns the whole window                        -->
+  <!-- ================================================================== -->
+  <section class="screen screen--game" id="screen-game" hidden>
+    <div class="gamebar">
+      <button type="button" class="icon-button" id="btn-menu" title="Back to the start screen">
+        <span aria-hidden="true">&#8592;</span><span>Menu</span>
+      </button>
+      <div class="gamebar__mid">
+        <span class="gamebar__title" id="gamebar-title">Chess Game</span>
+        <span class="gamebar__sub" id="gamebar-sub"></span>
+      </div>
+      <span class="badge badge--live" id="room-badge" hidden></span>
+      <button type="button" class="icon-button icon-button--settings" id="btn-settings"
+              title="Settings" aria-label="Settings">
+        <span aria-hidden="true">&#9881;</span>
+      </button>
+    </div>
+
+    <div class="game">
+      <!-- --------------------------------------------------- opponent -->
+      <div class="seat seat--top">
+        <div class="seat__card">
+          <span class="seat__avatar" id="opponent-avatar">O</span>
+          <span class="seat__text">
+            <span class="seat__name" id="opponent-name">Opponent</span>
+            <span class="seat__state" id="opponent-state">Waiting</span>
+          </span>
+          <span class="captured" id="opponent-captured" aria-label="Pieces captured"></span>
+          <span class="turn-dot" id="opponent-dot" hidden></span>
+        </div>
+      </div>
+
+      <!-- ------------------------------------------------------ board -->
+      <div class="board-shell">
+        <div class="board-frame">
+          <div class="board" id="board">
+            <div class="board__grid" id="grid"></div>
+            <div class="board__pieces" id="pieces"></div>
+            <div class="board__flash" id="board-flash" hidden></div>
+          </div>
+          <div class="promo" id="promo" hidden>
+            <div class="promo__card">
+              <h3>Promote your pawn</h3>
+              <div class="promo__choices" id="promo-choices"></div>
+              <button type="button" class="button button--quiet" id="btn-promo-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- -------------------------------------------------------- you -->
+      <div class="seat seat--bottom">
+        <div class="seat__card seat__card--you">
+          <span class="seat__avatar seat__avatar--you" id="local-avatar">Y</span>
+          <span class="seat__text">
+            <span class="seat__name" id="local-name">You</span>
+            <span class="seat__state" id="local-state">Your move</span>
+          </span>
+          <span class="captured" id="local-captured" aria-label="Pieces you captured"></span>
+          <span class="turn-dot turn-dot--you" id="local-dot" hidden></span>
+        </div>
+      </div>
+
+      <!-- ----------------------------------------------------- status -->
+      <div class="statusbar">
+        <span class="statusbar__dot" id="status-dot"></span>
+        <span class="statusbar__text" id="status-text">White to move</span>
+        <span class="statusbar__spacer"></span>
+        <span class="statusbar__meta" id="status-meta"></span>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------- panel -->
+    <aside class="panel">
+      <div class="panel__row">
+        <h3 class="panel__title">Moves</h3>
+        <span class="chip" id="move-count">0</span>
+      </div>
+      <ol class="moves" id="move-list"></ol>
+
+      <div class="panel__row panel__row--facts" id="room-facts" hidden>
+        <h3 class="panel__title">Room Number</h3>
+      </div>
+      <dl class="facts" id="facts" hidden>
+        <div><dt>Code</dt><dd id="fact-room">----</dd></div>
+        <div><dt>This computer</dt><dd id="fact-address">-</dd></div>
+      </dl>
+
+      <div class="panel__actions">
+        <button type="button" class="button button--ghost button--wide" id="btn-rematch" hidden>Rematch</button>
+        <button type="button" class="button button--quiet button--wide" id="btn-resign">Resign</button>
+      </div>
+    </aside>
+  </section>
+
+  <!-- ================================================================== -->
+  <!-- Overlays                                                           -->
+  <!-- ================================================================== -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal__card" role="dialog" aria-modal="true">
+      <span class="modal__eyebrow" id="modal-eyebrow">Game over</span>
+      <h2 class="modal__title" id="modal-title">Checkmate</h2>
+      <p class="modal__body" id="modal-body"></p>
+      <div class="modal__actions">
+        <button type="button" class="button button--quiet" id="btn-modal-rematch" hidden>Rematch</button>
+        <button type="button" class="button button--primary" id="btn-modal-dismiss">Back to menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <!-- ================================================================== -->
+  <!-- Settings                                                            -->
+  <!-- ================================================================== -->
+  <!--
+    Kept apart from the game-over modal on purpose. That one is opened by the
+    game reaching an end, and it decides for itself when to close; a panel the
+    player opened by hand has to stay put until they close it, even if the game
+    ends underneath it.
+  -->
+  <div class="settings" id="settings" hidden>
+    <div class="settings__card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <header class="settings__head">
+        <h2 class="settings__title" id="settings-title">Settings</h2>
+        <button type="button" class="icon-button" id="btn-settings-close"
+                title="Close settings" aria-label="Close settings">
+          <span aria-hidden="true">&#10005;</span>
+        </button>
+      </header>
+
+      <div class="settings__body">
+        <section class="settings__group">
+          <h3 class="settings__legend">Sound</h3>
+
+          <label class="switch">
+            <input type="checkbox" id="opt-sound">
+            <span class="switch__track" aria-hidden="true"><span class="switch__knob"></span></span>
+            <span class="switch__text">
+              <span class="switch__label">Piece sounds</span>
+              <span class="switch__hint">A knock as a piece lands, and a tone for check and the end of the game.</span>
+            </span>
+          </label>
+
+          <div class="slider" id="volume-wrap">
+            <label class="slider__head" for="opt-volume">
+              <span>Volume</span>
+              <output class="slider__value" id="volume-out">60%</output>
+            </label>
+            <input type="range" id="opt-volume" min="0" max="100" step="5">
+          </div>
+        </section>
+
+        <section class="settings__group">
+          <h3 class="settings__legend">Board</h3>
+
+          <label class="switch">
+            <input type="checkbox" id="opt-dots">
+            <span class="switch__track" aria-hidden="true"><span class="switch__knob"></span></span>
+            <span class="switch__text">
+              <span class="switch__label">Legal move hints</span>
+              <span class="switch__hint">Dots on the squares the piece you are holding can reach.</span>
+            </span>
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" id="opt-last">
+            <span class="switch__track" aria-hidden="true"><span class="switch__knob"></span></span>
+            <span class="switch__text">
+              <span class="switch__label">Highlight the last move</span>
+              <span class="switch__hint">Keeps the two squares it went between tinted.</span>
+            </span>
+          </label>
+
+          <label class="switch">
+            <input type="checkbox" id="opt-coords">
+            <span class="switch__track" aria-hidden="true"><span class="switch__knob"></span></span>
+            <span class="switch__text">
+              <span class="switch__label">Coordinates</span>
+              <span class="switch__hint">Files along the bottom and ranks up the side.</span>
+            </span>
+          </label>
+        </section>
+
+        <section class="settings__group">
+          <h3 class="settings__legend">Animation</h3>
+          <div class="segments" role="radiogroup" aria-label="Animation speed" id="opt-speed">
+            <button type="button" class="segment" data-speed="calm" role="radio">Calm</button>
+            <button type="button" class="segment is-active" data-speed="normal" role="radio" aria-checked="true">Normal</button>
+            <button type="button" class="segment" data-speed="instant" role="radio">Instant</button>
+          </div>
+          <p class="settings__note" id="speed-note">Pieces glide for a quarter of a second.</p>
+        </section>
+
+        <section class="settings__group">
+          <h3 class="settings__legend">Theme</h3>
+          <div class="swatches" id="settings-themes" role="group" aria-label="Colour theme"></div>
+        </section>
+      </div>
+
+      <footer class="settings__foot">
+        <button type="button" class="button button--primary button--wide" id="btn-settings-done">Done</button>
+      </footer>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+</body>
+</html>

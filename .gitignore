@@ -1,1 +1,12 @@
 *.class
+
+# Build output
+target/
+
+# Captured output from launching the game by hand
+run.out
+run.err
+app.out
+app.err
+app2.out
+app2.err

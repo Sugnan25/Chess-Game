@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.lanchess</groupId>
+  <artifactId>chess-game</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+  <name>Chess Game</name>
+  <description>Chess against the computer or a friend on the same Wi-Fi. Portable core + a desktop window that renders an HTML/CSS/JS interface.</description>
+
+  <properties>
+    <!-- Kept at 17 so the core and networking packages stay portable to Android. -->
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <javafx.version>17.0.11</javafx.version>
+  </properties>
+
+  <dependencies>
+    <!--
+      JavaFX renders the HTML/CSS/JS interface in a desktop window. The web
+      assets live in src/main/resources/web and the Java side serves them, so
+      the UI is plain web technology and only the shell is JavaFX.
+    -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-web</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.2</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <finalName>chess-game</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <configuration>
+          <!--
+            javafx.web pulls in native libraries that fail to unpack on a
+            headless test run, and no test touches the shell, so keep the
+            classpath off it.
+          -->
+          <classpathDependencyExcludes>
+            <classpathDependencyExclude>org.openjfx:*</classpathDependencyExclude>
+          </classpathDependencyExcludes>
+          <systemPropertyVariables>
+            <java.awt.headless>true</java.awt.headless>
+          </systemPropertyVariables>
+          <!--
+            The project folder contains a space, so surefire's boot Manifest-JAR
+            cannot verify the classpath it builds. Without this, test discovery
+            fails with NoClassDefFoundError whenever target/ is not freshly cleaned.
+          -->
+          <argLine>-Djdk.net.URLClassPath.disableClassPathURLCheck=true</argLine>
+          <useSystemClassLoader>true</useSystemClassLoader>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>com.lanchess.app.Launcher</mainClass>
+              <!-- target/lib holds the JavaFX jars copied below, so the jar runs on its own. -->
+              <addClasspath>true</addClasspath>
+              <classpathPrefix>lib/</classpathPrefix>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.6.1</version>
+        <executions>
+          <execution>
+            <id>copy-deps</id>
+            <phase>package</phase>
+            <goals><goal>copy-dependencies</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.directory}/lib</outputDirectory>
+              <includeScope>runtime</includeScope>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

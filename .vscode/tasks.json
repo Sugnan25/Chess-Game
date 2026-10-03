@@ -1,0 +1,42 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "maven: compile",
+      "type": "shell",
+      "command": "mvn -q compile",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "maven: test",
+      "type": "shell",
+      "command": "mvn -q clean test",
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "maven: package",
+      "type": "shell",
+      "command": "mvn -q clean package",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "maven: build for launch",
+      "detail": "Compiles and copies the JavaFX jars into target/lib without running the tests, which is what F5 needs.",
+      "type": "shell",
+      "command": "mvn -q -DskipTests package",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "run jar",
+      "detail": "Builds and starts the packaged game.",
+      "type": "shell",
+      "command": "java -jar target/chess-game.jar",
+      "group": "build",
+      "problemMatcher": []
+    }
+  ]
+}
