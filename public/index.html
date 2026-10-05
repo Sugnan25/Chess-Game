@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="tournament">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Chess Game</title>
+<meta name="description" content="Play chess against a computer engine or with friends over the network in real-time rooms.">
+<meta property="og:title" content="Chess Game">
+<meta property="og:description" content="Play chess against a computer engine or with friends over the network in real-time rooms.">
+<link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+<!-- SVG Pieces Sprite Definition (Standard Vector Chess Set) -->
+<svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- White Pawn -->
+    <g id="piece-wp">
+      <path d="m 22.5,9 c -2.21,0 -4,1.79 -4,4 0,0.89 0.29,1.71 0.78,2.38 C 17.33,16.5 16,18.59 16,21 c 0,2.03 0.94,3.84 2.41,5.03 C 15.41,27.09 11,31.58 11,39.5 l 23,0 c 0,-7.92 -4.41,-12.41 -7.41,-13.47 C 28.06,24.84 29,23.03 29,21 29,18.59 27.67,16.5 25.72,15.38 26.21,14.71 26.5,13.89 26.5,13 c 0,-2.21 -1.79,-4 -4,-4 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+    <!-- White Knight -->
+    <g id="piece-wn">
+      <path d="m 22,10 c 10.5,1 16.5,8 16,29 L 15,39 C 15,30 16,28 13,26 10,24 10,21 11,18 c 1,-3 6,-6 9,-4 0,0 -1,-2 2,-4 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="m 24,18 c 0.38,2.91 -5.55,7.37 -8,9 -3,2 -2.82,4.34 -5,4 -1.04,-0.94 -1.41,-3.04 0,-3 1.5,0 0.13,-1.69 1,-3 1,-1.5 3,-2.5 4,-2 1,0.5 3,-1 4,-2 1,-1 2.5,-3 4,-3 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="27" cy="16" r="1.5" fill="#1c1c1c"/>
+    </g>
+    <!-- White Bishop -->
+    <g id="piece-wb">
+      <path d="m 9,36 c 3.39,-0.97 10.11,0.43 13.5,-2 3.39,2.43 10.11,1.03 13.5,2 0,0 1.65,0.54 3,2 -0.68,0.97 -1.65,0.99 -3,1 -3.39,-0.21 -10.11,0.5 -13.5,-1 -3.39,1.5 -10.11,0.79 -13.5,1 -1.35,-0.01 -2.32,-0.03 -3,-1 1.35,-1.46 3,-2 3,-2 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <path d="m 15,32 c 2.5,2.5 12.5,2.5 15,0 0.5,-1.5 0,-2 0,-2 0,-2.5 -2.5,-4 -2.5,-4 5.5,-1.5 6,-11.5 -5,-15.5 -11,4 -10.5,14 -5,15.5 0,0 -2.5,1.5 -2.5,4 0,0 -0.5,0.5 0,2 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="22.5" cy="8.5" r="1.5" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <path d="m 17.5,26 h 10 M 22.5,21 v 10" stroke="#1c1c1c" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+    <!-- White Rook -->
+    <g id="piece-wr">
+      <path d="m 9,39 h 27 v -3 H 9 v 3 z m 3.5,-3 1.5,-17 h 17 l 1.5,17 H 12.5 z M 11,19 h 23 v -5 h -4 v 2 h -4 v -2 h -3 v 2 h -4 v -2 h -4 v 5 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m 12,36 h 21" stroke="#1c1c1c" stroke-width="1.5"/>
+    </g>
+    <!-- White Queen -->
+    <g id="piece-wq">
+      <path d="m 9,26 c 8.5,-1.5 21,-1.5 27,0 l 2,-12 -7,7 -3.5,-10 -5,8 -5,-8 -3.5,10 -7,-7 2,12 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m 9,26 c 0,2 1.5,2 2.5,4 1,1.5 1,1 1.5,3.5 0.5,1.5 0.5,1.5 1,2 0.5,0.5 0.5,1 0.5,1.5 0.5,0.5 1,0.5 2,0.5 2,0 3,0.5 3,0.5 1,0 2,0.5 3,0.5 1,0 2,-0.5 3,-0.5 0,0 1,-0.5 3,-0.5 1,0 1.5,0 2,-0.5 0,-0.5 0,-1 0.5,-1.5 0.5,-0.5 0.5,-0.5 1,-2 0.5,-2.5 0.5,-2 1.5,-3.5 1,-2 2.5,-2 2.5,-4 -6,-1.5 -18.5,-1.5 -27,0 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <path d="m 11,38 h 23 v 2.5 H 11 Z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="6" cy="12" r="2" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="14" cy="9" r="2" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="22.5" cy="7" r="2" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="31" cy="9" r="2" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="39" cy="12" r="2" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+    </g>
+    <!-- White King -->
+    <g id="piece-wk">
+      <path d="m 22.5,11.5 v 6 M 20,13.5 h 5" stroke="#1c1c1c" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="m 22.5,25 c 0,0 4.5,-7.5 3,-10.5 -1,-2 -3.5,-2 -3,-2 -0.5,0 -2,0 -3,2 -1.5,3 3,10.5 3,10.5" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <path d="m 12.5,37 c 5.5,3.5 14.5,3.5 20,0 0,-4 -3.5,-5 -3.5,-5 2,-2.5 2.5,-6.5 0,-8.5 -2.5,-2 -6.5,-2 -6.5,-2 0,0 -4,0 -6.5,2 -2.5,2 -2,6 0,8.5 0,0 -3.5,1 -3.5,5 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <path d="m 11.5,37 c 5.5,2 16.5,2 22,0 v 3.5 h -22 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+      <circle cx="22.5" cy="6.5" r="1.5" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5"/>
+    </g>
+
+    <!-- Black Pawn -->
+    <g id="piece-bp">
+      <path d="m 22.5,9 c -2.21,0 -4,1.79 -4,4 0,0.89 0.29,1.71 0.78,2.38 C 17.33,16.5 16,18.59 16,21 c 0,2.03 0.94,3.84 2.41,5.03 C 15.41,27.09 11,31.58 11,39.5 l 23,0 c 0,-7.92 -4.41,-12.41 -7.41,-13.47 C 28.06,24.84 29,23.03 29,21 29,18.59 27.67,16.5 25.72,15.38 26.21,14.71 26.5,13.89 26.5,13 c 0,-2.21 -1.79,-4 -4,-4 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+    <!-- Black Knight -->
+    <g id="piece-bn">
+      <path d="m 22,10 c 10.5,1 16.5,8 16,29 L 15,39 C 15,30 16,28 13,26 10,24 10,21 11,18 c 1,-3 6,-6 9,-4 0,0 -1,-2 2,-4 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="m 24,18 c 0.38,2.91 -5.55,7.37 -8,9 -3,2 -2.82,4.34 -5,4 -1.04,-0.94 -1.41,-3.04 0,-3 1.5,0 0.13,-1.69 1,-3 1,-1.5 3,-2.5 4,-2 1,0.5 3,-1 4,-2 1,-1 2.5,-3 4,-3 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="27" cy="16" r="1.5" fill="#f6f4f0"/>
+    </g>
+    <!-- Black Bishop -->
+    <g id="piece-bb">
+      <path d="m 9,36 c 3.39,-0.97 10.11,0.43 13.5,-2 3.39,2.43 10.11,1.03 13.5,2 0,0 1.65,0.54 3,2 -0.68,0.97 -1.65,0.99 -3,1 -3.39,-0.21 -10.11,0.5 -13.5,-1 -3.39,1.5 -10.11,0.79 -13.5,1 -1.35,-0.01 -2.32,-0.03 -3,-1 1.35,-1.46 3,-2 3,-2 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <path d="m 15,32 c 2.5,2.5 12.5,2.5 15,0 0.5,-1.5 0,-2 0,-2 0,-2.5 -2.5,-4 -2.5,-4 5.5,-1.5 6,-11.5 -5,-15.5 -11,4 -10.5,14 -5,15.5 0,0 -2.5,1.5 -2.5,4 0,0 -0.5,0.5 0,2 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="22.5" cy="8.5" r="1.5" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <path d="m 17.5,26 h 10 M 22.5,21 v 10" stroke="#f6f4f0" stroke-width="1.5" stroke-linecap="round"/>
+    </g>
+    <!-- Black Rook -->
+    <g id="piece-br">
+      <path d="m 9,39 h 27 v -3 H 9 v 3 z m 3.5,-3 1.5,-17 h 17 l 1.5,17 H 12.5 z M 11,19 h 23 v -5 h -4 v 2 h -4 v -2 h -3 v 2 h -4 v -2 h -4 v 5 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m 12,36 h 21" stroke="#f6f4f0" stroke-width="1.5"/>
+    </g>
+    <!-- Black Queen -->
+    <g id="piece-bq">
+      <path d="m 9,26 c 8.5,-1.5 21,-1.5 27,0 l 2,-12 -7,7 -3.5,-10 -5,8 -5,-8 -3.5,10 -7,-7 2,12 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="m 9,26 c 0,2 1.5,2 2.5,4 1,1.5 1,1 1.5,3.5 0.5,1.5 0.5,1.5 1,2 0.5,0.5 0.5,1 0.5,1.5 0.5,0.5 1,0.5 2,0.5 2,0 3,0.5 3,0.5 1,0 2,0.5 3,0.5 1,0 2,-0.5 3,-0.5 0,0 1,-0.5 3,-0.5 1,0 1.5,0 2,-0.5 0,-0.5 0,-1 0.5,-1.5 0.5,-0.5 0.5,-0.5 1,-2 0.5,-2.5 0.5,-2 1.5,-3.5 1,-2 2.5,-2 2.5,-4 -6,-1.5 -18.5,-1.5 -27,0 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <path d="m 11,38 h 23 v 2.5 H 11 Z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="6" cy="12" r="2" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="14" cy="9" r="2" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="22.5" cy="7" r="2" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="31" cy="9" r="2" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="39" cy="12" r="2" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+    </g>
+    <!-- Black King -->
+    <g id="piece-bk">
+      <path d="m 22.5,11.5 v 6 M 20,13.5 h 5" stroke="#f6f4f0" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="m 22.5,25 c 0,0 4.5,-7.5 3,-10.5 -1,-2 -3.5,-2 -3,-2 -0.5,0 -2,0 -3,2 -1.5,3 3,10.5 3,10.5" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <path d="m 12.5,37 c 5.5,3.5 14.5,3.5 20,0 0,-4 -3.5,-5 -3.5,-5 2,-2.5 2.5,-6.5 0,-8.5 -2.5,-2 -6.5,-2 -6.5,-2 0,0 -4,0 -6.5,2 -2.5,2 -2,6 0,8.5 0,0 -3.5,1 -3.5,5 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <path d="m 11.5,37 c 5.5,2 16.5,2 22,0 v 3.5 h -22 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+      <circle cx="22.5" cy="6.5" r="1.5" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
+    </g>
+  </defs>
+</svg>
+
+<div class="app-layout" id="app">
+
+  <!-- ================================================================== -->
+  <!-- Top Navigation Header (Universal Top Bar Contract)                 -->
+  <!-- ================================================================== -->
+  <header class="app-header">
+    <div class="brand-zone">
+      <a href="#" class="brand-mark" id="btn-brand">
+        <svg class="brand-icon" viewBox="0 0 45 45"><use href="#piece-wn"/></svg>
+        <span class="brand-text">Chess Arena</span>
+      </a>
+    </div>
+
+    <nav class="nav-zone">
+      <button type="button" class="nav-link is-active" id="nav-btn-computer">Play Computer</button>
+      <button type="button" class="nav-link" id="nav-btn-friend">Play Online Friend</button>
+    </nav>
+
+    <div class="action-zone">
+      <!-- Theme Switcher Pill -->
+      <div class="theme-picker" id="header-theme-picker" title="Board Theme">
+        <button type="button" class="theme-swatch is-active" data-theme="tournament" title="Tournament Green"></button>
+        <button type="button" class="theme-swatch" data-theme="ember" title="Walnut Wood"></button>
+        <button type="button" class="theme-swatch" data-theme="slate" title="Modern Slate"></button>
+        <button type="button" class="theme-swatch" data-theme="obsidian" title="Obsidian Dark"></button>
+      </div>
+
+      <!-- Sound Toggle -->
+      <button type="button" class="action-btn" id="btn-sound-toggle" title="Toggle Sound" aria-label="Toggle Sound">
+        <span class="sound-icon" id="sound-icon-state">&#128266;</span>
+      </button>
+
+      <!-- Settings Dialog Trigger -->
+      <button type="button" class="action-btn" id="btn-settings-open" title="Settings" aria-label="Settings">
+        <span>&#9881;</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================================================================== -->
+  <!-- 1. Home / Start Lobby Screen                                       -->
+  <!-- ================================================================== -->
+  <main class="screen screen--home" id="screen-home">
+    <div class="lobby-container">
+      <div class="lobby-hero">
+        <div class="hero-badge">
+          <span>Real-time Multiplayer</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>Adaptive AI Bots</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>Zero-Lag Engine</span>
+        </div>
+        <h1 class="hero-title">Experience Pure Chess</h1>
+        <p class="hero-subtitle">
+          Challenge tactical chess bots or create a private room to battle online friends in real-time.
+        </p>
+      </div>
+
+      <div class="lobby-grid">
+        <!-- ----------------------- Card: Play vs Computer ----------------- -->
+        <section class="game-mode-card card-computer">
+          <div class="mode-card-head">
+            <div class="mode-icon-circle"><svg viewBox="0 0 45 45"><use href="#piece-wq"/></svg></div>
+            <div>
+              <h2 class="mode-title">Play with Computer</h2>
+              <p class="mode-desc">Select bot strength, pick your colour, and make your move.</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="player-name-input">Your Display Name</label>
+            <input type="text" id="player-name-input" class="text-input" maxlength="20" placeholder="e.g. Magnus" autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <div class="label-heading">
+              <span class="form-label">Opponent Difficulty</span>
+            </div>
+            <div class="level-selector" id="level-selector" role="radiogroup" aria-label="Bot Strength">
+              <!-- Dynamically populated or default levels -->
+              <button type="button" class="level-card" data-level="simple" role="radio" aria-checked="false">
+                <span class="level-title">Beginner</span>
+                <span class="level-rating">Rating 800</span>
+                <span class="level-tag">Fun & Casual</span>
+              </button>
+              <button type="button" class="level-card is-active" data-level="medium" role="radio" aria-checked="true">
+                <span class="level-title">Intermediate</span>
+                <span class="level-rating">Rating 1400</span>
+                <span class="level-tag">Solid Tactics</span>
+              </button>
+              <button type="button" class="level-card" data-level="hard" role="radio" aria-checked="false">
+                <span class="level-title">Master</span>
+                <span class="level-rating">Rating 2000</span>
+                <span class="level-tag">Deep Search</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="label-heading">
+              <span class="form-label">Time Control</span>
+            </div>
+            <div class="time-selector" id="time-selector-computer" role="radiogroup" aria-label="Game Clock">
+              <button type="button" class="time-badge" data-time="60">⚡ 1m</button>
+              <button type="button" class="time-badge" data-time="180">⚡ 3m</button>
+              <button type="button" class="time-badge" data-time="300">⚡ 5m</button>
+              <button type="button" class="time-badge is-active" data-time="600">⏱️ 10m</button>
+              <button type="button" class="time-badge" data-time="900">⏱️ 15m</button>
+              <button type="button" class="time-badge" data-time="0">⏳ Casual</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="label-heading">
+              <span class="form-label">Play As</span>
+            </div>
+            <div class="color-picker" role="radiogroup" aria-label="Piece Color">
+              <button type="button" class="color-option is-active" data-color="white">
+                <div class="color-option-icon"><svg viewBox="0 0 45 45"><use href="#piece-wk"/></svg></div>
+                <div class="color-option-info">
+                  <span class="color-name">White</span>
+                  <span class="color-sub">First Move</span>
+                </div>
+              </button>
+              <button type="button" class="color-option" data-color="black">
+                <div class="color-option-icon"><svg viewBox="0 0 45 45"><use href="#piece-bk"/></svg></div>
+                <div class="color-option-info">
+                  <span class="color-name">Black</span>
+                  <span class="color-sub">Counter Move</span>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <button type="button" class="btn btn-primary btn-lg" id="btn-start-computer">
+            <span>Start Game</span>
+            <span aria-hidden="true">&rarr;</span>
+          </button>
+        </section>
+
+        <!-- ----------------------- Card: Play with Friend ----------------- -->
+        <section class="game-mode-card card-friend">
+          <div class="mode-card-head">
+            <div class="mode-icon-circle mode-icon-circle--alt"><svg viewBox="0 0 45 45"><use href="#piece-wk"/></svg></div>
+            <div>
+              <h2 class="mode-title">Play Online Friend</h2>
+              <p class="mode-desc">Connect phone, tablet, or another PC with QR or invite link.</p>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <div class="label-heading">
+              <span class="form-label">Match Clock</span>
+            </div>
+            <div class="time-selector" id="time-selector-friend" role="radiogroup" aria-label="Friend Game Clock">
+              <button type="button" class="time-badge" data-time="60">⚡ 1m</button>
+              <button type="button" class="time-badge" data-time="180">⚡ 3m</button>
+              <button type="button" class="time-badge" data-time="300">⚡ 5m</button>
+              <button type="button" class="time-badge is-active" data-time="600">⏱️ 10m</button>
+              <button type="button" class="time-badge" data-time="900">⏱️ 15m</button>
+              <button type="button" class="time-badge" data-time="0">⏳ Casual</button>
+            </div>
+          </div>
+
+          <div class="friend-action-box">
+            <h3 class="action-box-title">Create Match & Connect</h3>
+            <p class="action-box-desc">Get instant QR code & link to play across any device.</p>
+            <button type="button" class="btn btn-accent btn-block" id="btn-host-room">
+              <span>📱 Host & Connect Device</span>
+            </button>
+          </div>
+
+          <div class="or-separator"><span>OR JOIN CODE</span></div>
+
+          <div class="friend-action-box">
+            <h3 class="action-box-title">Enter Room Code</h3>
+            <p class="action-box-desc">Got an invite? Enter the 4-digit code below.</p>
+            <div class="code-entry-row">
+              <input type="text" id="input-room-code" class="code-input" maxlength="4" inputmode="numeric" placeholder="0000" autocomplete="off">
+              <button type="button" class="btn btn-secondary" id="btn-join-room">Join</button>
+            </div>
+          </div>
+
+          <div class="friend-quick-tip">
+            <span class="tip-dot"></span>
+            <span>Friends can join instantly via mobile browser, laptop, or desktop without logging in.</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================================================================== -->
+  <!-- 2. Active Match View                                               -->
+  <!-- ================================================================== -->
+  <main class="screen screen--game" id="screen-game" hidden>
+    <div class="game-arena">
+
+      <!-- Left Column: The Chessboard & Player HUDs -->
+      <div class="board-column">
+
+        <!-- Top Player HUD (Opponent / Bot) -->
+        <div class="player-hud hud-opponent" id="hud-opponent">
+          <div class="player-info">
+            <div class="player-avatar" id="opp-avatar">🤖</div>
+            <div class="player-details">
+              <div class="player-name-row">
+                <span class="player-name" id="opp-name">Opponent</span>
+                <span class="player-badge" id="opp-badge">BOT</span>
+              </div>
+              <div class="player-status-line">
+                <span class="status-indicator-dot" id="opp-status-dot"></span>
+                <span class="player-status-text" id="opp-status-text">Waiting</span>
+              </div>
+            </div>
+          </div>
+          <!-- Captured pieces shelf -->
+          <div class="material-shelf" id="opp-captured-shelf"></div>
+          <!-- Digital Clock -->
+          <div class="player-clock" id="opp-clock">10:00</div>
+          <div class="turn-halo" id="opp-turn-halo" hidden></div>
+        </div>
+
+        <!-- Center: Board + Evaluation Bar Wrapper -->
+        <div class="board-viewport">
+          <!-- Evaluation Bar -->
+          <div class="eval-bar-track" id="eval-bar" title="Position Evaluation">
+            <div class="eval-bar-fill" id="eval-fill" style="height: 50%;"></div>
+            <span class="eval-text" id="eval-text">0.0</span>
+          </div>
+
+          <!-- Main Chessboard Frame -->
+          <div class="board-frame" id="board-frame">
+            <div class="chessboard" id="board">
+              <!-- Grid background cells (64 squares) -->
+              <div class="board-grid" id="grid"></div>
+              <!-- Moving pieces layer -->
+              <div class="board-pieces" id="pieces"></div>
+              <!-- Dragging piece overlay (floating under cursor) -->
+              <div class="drag-piece-overlay" id="drag-piece-overlay" hidden></div>
+              <!-- Board flash highlight (check / game end) -->
+              <div class="board-flash-layer" id="board-flash" hidden></div>
+            </div>
+
+            <!-- Pawn Promotion Dialog Overlay -->
+            <div class="promo-modal" id="promo-modal" hidden>
+              <div class="promo-content">
+                <h3 class="promo-title">Promote Pawn</h3>
+                <div class="promo-options" id="promo-options"></div>
+                <button type="button" class="btn btn-quiet btn-sm" id="btn-promo-cancel">Cancel</button>
+              </div>
+            </div>
+
+            <!-- Floating Reaction Layer -->
+            <div class="reaction-layer" id="reaction-layer"></div>
+          </div>
+        </div>
+
+        <!-- Bottom Player HUD (You) -->
+        <div class="player-hud hud-you" id="hud-you">
+          <div class="player-info">
+            <div class="player-avatar avatar-you" id="you-avatar">Y</div>
+            <div class="player-details">
+              <div class="player-name-row">
+                <span class="player-name" id="you-name">You</span>
+                <span class="player-badge badge-you">YOU</span>
+              </div>
+              <div class="player-status-line">
+                <span class="status-indicator-dot" id="you-status-dot"></span>
+                <span class="player-status-text" id="you-status-text">Your move</span>
+              </div>
+            </div>
+          </div>
+          <!-- Captured pieces shelf -->
+          <div class="material-shelf" id="you-captured-shelf"></div>
+          <!-- Digital Clock -->
+          <div class="player-clock" id="you-clock">10:00</div>
+          <div class="turn-halo halo-you" id="you-turn-halo" hidden></div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Interactive Side Panel -->
+      <aside class="sidebar-column">
+        <!-- Room Invite Bar (Multiplayer only) -->
+        <div class="room-invite-panel" id="room-invite-panel" hidden>
+          <div class="room-invite-head">
+            <span class="room-status-badge" id="room-status-badge">
+              <span class="pulse-dot"></span>
+              <span id="room-status-label">Waiting for friend</span>
+            </span>
+            <div class="room-code-tag">
+              <span>Code:</span>
+              <strong id="display-room-code">----</strong>
+            </div>
+          </div>
+          <div class="room-btn-group">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-link">
+              <span>Copy Invite Link</span>
+            </button>
+            <button type="button" class="btn btn-quiet btn-sm" id="btn-copy-code">
+              <span>Copy Code</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Interactive Quick Reactions Dock (Multiplayer) -->
+        <div class="reactions-dock" id="reactions-dock">
+          <span class="dock-label">React:</span>
+          <div class="emoji-bar">
+            <button type="button" class="emoji-btn" data-emoji="👏" title="Applause">👏</button>
+            <button type="button" class="emoji-btn" data-emoji="🔥" title="Fire Move">🔥</button>
+            <button type="button" class="emoji-btn" data-emoji="👑" title="King">👑</button>
+            <button type="button" class="emoji-btn" data-emoji="🤝" title="Good Game">🤝</button>
+            <button type="button" class="emoji-btn" data-emoji="😮" title="Surprise">😮</button>
+            <button type="button" class="emoji-btn" data-emoji="🎯" title="Great Accuracy">🎯</button>
+          </div>
+        </div>
+
+        <!-- Move History Table -->
+        <div class="notation-panel">
+          <div class="opening-name-banner" id="opening-name-banner">
+            <span class="opening-icon">📖</span>
+            <span class="opening-text" id="opening-name">Standard Opening</span>
+          </div>
+          <div class="notation-header">
+            <span class="notation-title">Move Notation</span>
+            <span class="move-ply-counter" id="move-ply-counter">0 moves</span>
+          </div>
+
+          <div class="notation-scroll" id="notation-scroll">
+            <table class="notation-table" id="notation-table">
+              <thead>
+                <tr>
+                  <th class="th-num">#</th>
+                  <th>White</th>
+                  <th>Black</th>
+                </tr>
+              </thead>
+              <tbody id="notation-tbody">
+                <!-- Move rows dynamically generated -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Move History Review Stepper -->
+          <div class="notation-controls">
+            <button type="button" class="stepper-btn" id="btn-step-start" title="First Move">&#171;</button>
+            <button type="button" class="stepper-btn" id="btn-step-prev" title="Previous Move">&#8249;</button>
+            <button type="button" class="stepper-btn" id="btn-step-next" title="Next Move">&#8250;</button>
+            <button type="button" class="stepper-btn" id="btn-step-end" title="Latest Move">&#187;</button>
+          </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="game-actions-card">
+          <div class="action-grid">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-action-undo" title="Takeback previous move (Vs Computer)">
+              <span>↩️ Undo</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-action-hint" title="Show engine best move hint">
+              <span>💡 Hint</span>
+            </button>
+          </div>
+          <div class="action-grid">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-flip-board" title="Flip Board Perspective">
+              <span>&#8646; Flip Board</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-connect-phone-game" title="Connect Phone or Another PC">
+              <span>📱 Connect Phone</span>
+            </button>
+          </div>
+          <div class="action-grid">
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-pgn" title="Copy PGN notation">
+              <span>Copy PGN</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-fen" title="Copy FEN string">
+              <span>Copy FEN</span>
+            </button>
+          </div>
+          <div class="action-grid">
+            <button type="button" class="btn btn-accent btn-sm" id="btn-action-rematch" hidden>
+              <span>Rematch</span>
+            </button>
+            <button type="button" class="btn btn-danger-outline btn-sm" id="btn-action-resign">
+              <span>Resign</span>
+            </button>
+          </div>
+          <button type="button" class="btn btn-quiet btn-block btn-sm" id="btn-action-menu">
+            <span>&larr; Return to Menu</span>
+          </button>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- ================================================================== -->
+  <!-- 3. Overlays & Dialogs                                              -->
+  <!-- ================================================================== -->
+
+  <!-- Connect Phone & Cross-Device Modal -->
+  <div class="modal-backdrop" id="modal-device-connect" hidden>
+    <div class="modal-card modal-connect-card">
+      <div class="connect-modal-header">
+        <div>
+          <h2 class="connect-modal-title">Connect Phone or Another PC</h2>
+          <p class="connect-modal-desc">Scan with your mobile camera or share the invite link to play seamlessly.</p>
+        </div>
+        <button type="button" class="icon-close-btn" id="btn-close-connect" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="connect-grid">
+        <!-- QR Code Box -->
+        <div class="connect-qr-panel">
+          <div class="qr-canvas-wrapper" id="qr-canvas-container">
+            <!-- Dynamic QR Code generated here -->
+          </div>
+          <div class="qr-badge-instruction">
+            <span>📱 Point phone camera to connect</span>
+          </div>
+        </div>
+
+        <!-- Links and Code Details -->
+        <div class="connect-details-panel">
+          <div class="connect-method">
+            <span class="method-label">Direct Match Link</span>
+            <div class="share-url-row">
+              <input type="text" readonly id="input-share-link" class="share-url-input" value="">
+              <button type="button" class="btn btn-primary btn-sm" id="btn-modal-copy-link">Copy Link</button>
+            </div>
+          </div>
+
+          <div class="connect-method">
+            <span class="method-label">Or Enter 4-Digit Room PIN</span>
+            <div class="pin-highlight-box">
+              <span class="pin-code-large" id="modal-display-pin">----</span>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-modal-copy-pin">Copy PIN</button>
+            </div>
+          </div>
+
+          <div class="quick-share-row">
+            <button type="button" class="btn btn-social btn-whatsapp" id="btn-share-whatsapp">
+              <span>💬 WhatsApp</span>
+            </button>
+            <button type="button" class="btn btn-social btn-email" id="btn-share-email">
+              <span>✉️ Email</span>
+            </button>
+          </div>
+
+          <div class="live-radar-status">
+            <span class="radar-dot"></span>
+            <span id="modal-radar-text">Waiting for opponent to connect...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div class="modal-backdrop" id="modal-gameover" hidden>
+    <div class="modal-card modal-gameover-card">
+      <div class="modal-icon-crown" id="gameover-crown">🏆</div>
+      <h2 class="modal-heading" id="gameover-title">Checkmate!</h2>
+      <p class="modal-description" id="gameover-detail">You won the game.</p>
+
+      <div class="modal-btn-row">
+        <button type="button" class="btn btn-primary btn-block" id="btn-modal-rematch">
+          <span>Rematch</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-block" id="btn-modal-menu">
+          <span>Main Menu</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resign Confirmation Modal -->
+  <div class="modal-backdrop" id="modal-resign-confirm" hidden>
+    <div class="modal-card">
+      <h2 class="modal-heading">Resign Game?</h2>
+      <p class="modal-description">Are you sure you want to forfeit this match?</p>
+      <div class="modal-btn-row">
+        <button type="button" class="btn btn-danger btn-block" id="btn-confirm-resign">
+          <span>Yes, Resign</span>
+        </button>
+        <button type="button" class="btn btn-quiet btn-block" id="btn-cancel-resign">
+          <span>Cancel</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-backdrop" id="modal-settings" hidden>
+    <div class="modal-card settings-card">
+      <div class="settings-head">
+        <h2 class="settings-title">Match Settings</h2>
+        <button type="button" class="icon-close-btn" id="btn-settings-close" aria-label="Close Settings">&times;</button>
+      </div>
+
+      <div class="settings-body">
+        <div class="setting-item">
+          <label class="setting-label-block" for="setting-sound-toggle">
+            <span class="setting-title">Piece Audio</span>
+            <span class="setting-subtitle">Acoustic wood knock, capture and check sounds</span>
+          </label>
+          <input type="checkbox" id="setting-sound-toggle" class="toggle-checkbox" checked>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label-block" for="setting-hints-toggle">
+            <span class="setting-title">Legal Move Hints</span>
+            <span class="setting-subtitle">Highlight dots on valid target squares</span>
+          </label>
+          <input type="checkbox" id="setting-hints-toggle" class="toggle-checkbox" checked>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label-block" for="setting-lastmove-toggle">
+            <span class="setting-title">Highlight Last Move</span>
+            <span class="setting-subtitle">Amber tint on origin and target squares</span>
+          </label>
+          <input type="checkbox" id="setting-lastmove-toggle" class="toggle-checkbox" checked>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label-block" for="setting-coords-toggle">
+            <span class="setting-title">Board Coordinates</span>
+            <span class="setting-subtitle">Display a-h and 1-8 labels on board squares</span>
+          </label>
+          <input type="checkbox" id="setting-coords-toggle" class="toggle-checkbox" checked>
+        </div>
+      </div>
+
+      <div class="settings-foot">
+        <button type="button" class="btn btn-primary btn-block" id="btn-settings-done">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Bar -->
+  <div class="toast-pill" id="toast-pill" hidden>
+    <span class="toast-message" id="toast-message">Notification message</span>
+  </div>
+
+</div>
+
+<script src="/js/chess.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

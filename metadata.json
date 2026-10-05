@@ -1,0 +1,6 @@
+{
+  "name": "Chess Game",
+  "description": "Play chess against a computer engine or with friends over the network in real-time rooms.",
+  "permissions": [],
+  "capabilities": []
+}
