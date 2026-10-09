@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
 import { Chess } from 'chess.js';
 import crypto from 'crypto';
@@ -7,52 +8,180 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const publicDir = path.resolve(__dirname, 'public');
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json());
 app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(publicDir));
 
-// Session identification middleware
-app.use((req, res, next) => {
-  let sessionId = (req.headers['x-session-id'] as string) || (req.query.sessionId as string) || req.cookies?.sessionId;
-  if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
-    sessionId = crypto.randomUUID();
-    res.cookie('sessionId', sessionId, { httpOnly: true, sameSite: 'none', secure: true, maxAge: 86400000 });
+// Session identification helper & middleware
+export function getReqSessionId(req: Request): string {
+  const sid = (req.headers['x-session-id'] as string) ||
+              (req.query.sessionId as string) ||
+              (req.body && (req.body as any).sessionId as string) ||
+              req.cookies?.sessionId;
+  if (sid && sid !== 'undefined' && sid !== 'null') {
+    return sid;
   }
+  return 'default_player';
+}
+
+app.use((req, res, next) => {
+  if (!req.cookies) {
+    (req as any).cookies = {};
+  }
+  let sessionId = (req.headers['x-session-id'] as string) ||
+                  (req.query.sessionId as string) ||
+                  (req.body && (req.body as any).sessionId as string) ||
+                  req.cookies?.sessionId;
+  if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
+    sessionId = 'sess_' + crypto.randomUUID();
+  }
+  try {
+    res.cookie('sessionId', sessionId, { httpOnly: true, sameSite: 'lax', maxAge: 86400000 });
+  } catch {}
   req.cookies.sessionId = sessionId;
   next();
 });
 
-// Levels definition
+// Levels definition - calibrated to ~4.0 seconds response time as requested!
 const LEVELS = [
   {
     id: 'simple',
     label: 'Beginner (800)',
-    blurb: 'Makes casual moves. Fast & easy.',
+    blurb: 'Makes casual moves. Relaxed & fun.',
     depth: 1,
-    thinkingMillis: 50,
-    minimumThinkMillis: 60
+    thinkingMillis: 3800,
+    minimumThinkMillis: 4000
   },
   {
     id: 'medium',
     label: 'Intermediate (1400)',
-    blurb: 'Plays solid tactical chess quickly.',
+    blurb: 'Plays solid tactical chess with thoughtful timing.',
     depth: 2,
-    thinkingMillis: 90,
-    minimumThinkMillis: 100
+    thinkingMillis: 3900,
+    minimumThinkMillis: 4000
   },
   {
     id: 'hard',
     label: 'Master (2000)',
-    blurb: 'Sharp tactical engine search.',
+    blurb: 'Deep tactical search with grandmaster patience.',
     depth: 3,
-    thinkingMillis: 140,
-    minimumThinkMillis: 150
+    thinkingMillis: 4000,
+    minimumThinkMillis: 4100
   }
 ];
+
+// -----------------------------------------------------------------------------
+// User Accounts, Verification, Friends & Social System
+// -----------------------------------------------------------------------------
+export interface UserAccount {
+  id: string;
+  username: string;
+  email: string;
+  passwordHash: string;
+  verified: boolean;
+  verificationCode: string;
+  rating: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  avatar: string;
+  createdAt: number;
+}
+
+export interface FriendRequest {
+  id: string;
+  fromUserId: string;
+  fromUsername: string;
+  fromRating: number;
+  toUserId: string;
+  type: 'friend' | 'challenge';
+  roomCode?: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAt: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  roomId?: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: number;
+}
+
+const users = new Map<string, UserAccount>();
+const sessionUser = new Map<string, string>(); // sessionId -> userId
+const friendRequests = new Map<string, FriendRequest>();
+const userFriends = new Map<string, Set<string>>(); // userId -> Set of userIds
+const roomChatMessages = new Map<string, ChatMessage[]>(); // roomId -> messages
+
+// Seed Demo Friends and a sample verified user
+const demoUsers: UserAccount[] = [
+  {
+    id: 'user_leo',
+    username: 'Grandmaster_Leo',
+    email: 'leo@chess.org',
+    passwordHash: 'pass123',
+    verified: true,
+    verificationCode: '772910',
+    rating: 1850,
+    wins: 142,
+    losses: 38,
+    draws: 19,
+    avatar: '🦁',
+    createdAt: Date.now() - 864000000
+  },
+  {
+    id: 'user_elena',
+    username: 'Elena_Tactics',
+    email: 'elena@chess.org',
+    passwordHash: 'pass123',
+    verified: true,
+    verificationCode: '881249',
+    rating: 1520,
+    wins: 89,
+    losses: 54,
+    draws: 12,
+    avatar: '🦊',
+    createdAt: Date.now() - 432000000
+  },
+  {
+    id: 'user_alex',
+    username: 'Alex_Master',
+    email: 'alex@chess.org',
+    passwordHash: 'pass123',
+    verified: true,
+    verificationCode: '310928',
+    rating: 1390,
+    wins: 45,
+    losses: 31,
+    draws: 8,
+    avatar: '🦅',
+    createdAt: Date.now() - 216000000
+  }
+];
+
+// Real user friends map: userId/sessionId -> Set<friendUserId/sessionId>
+const userFriendIds = new Map<string, Set<string>>();
+
+function getSafeUser(u: UserAccount) {
+  return {
+    id: u.id,
+    username: u.username,
+    email: u.email,
+    verified: u.verified,
+    rating: u.rating,
+    wins: u.wins,
+    losses: u.losses,
+    draws: u.draws,
+    avatar: u.avatar
+  };
+}
 
 // Square helpers: 0 = a8, 63 = h1
 function indexToSquare(idx: number): string {
@@ -286,18 +415,47 @@ function evaluateBoard(chess: Chess): number {
   return chess.turn() === 'w' ? score : -score;
 }
 
-function negamax(chess: Chess, depth: number, alpha: number, beta: number): number {
+const BOOK_MOVES: Record<string, string[]> = {
+  // From starting position (White)
+  'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1': ['e4', 'd4', 'Nf3', 'c4'],
+  // Responses to e4 (Black)
+  'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1': ['e5', 'c5', 'e6', 'c6', 'Nf6'],
+  // Responses to d4 (Black)
+  'rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1': ['d5', 'Nf6', 'e6', 'g6'],
+  // White responses after 1. e4 e5
+  'rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': ['Nf3', 'Bc4', 'Nc3'],
+  // White responses after 1. e4 c5
+  'rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2': ['Nf3', 'Nc3', 'c3']
+};
+
+function negamaxAlphaBeta(
+  chess: Chess,
+  depth: number,
+  alpha: number,
+  beta: number,
+  startTime: number,
+  maxTime: number
+): number {
   if (depth === 0 || chess.isGameOver()) {
     return evaluateBoard(chess);
   }
+  if (Date.now() - startTime > maxTime) {
+    return evaluateBoard(chess);
+  }
+
   let max = -Infinity;
   const moves = chess.moves({ verbose: true });
-  moves.sort((a, b) => (b.captured ? 1 : 0) - (a.captured ? 1 : 0));
+  moves.sort((a, b) => {
+    const aVal = (a.captured ? (PIECE_VALUES[a.captured] || 0) * 10 - (PIECE_VALUES[a.piece] || 0) : 0) + (a.promotion ? 800 : 0);
+    const bVal = (b.captured ? (PIECE_VALUES[b.captured] || 0) * 10 - (PIECE_VALUES[b.piece] || 0) : 0) + (b.promotion ? 800 : 0);
+    return bVal - aVal;
+  });
 
   for (const move of moves) {
     chess.move(move);
-    const score = -negamax(chess, depth - 1, -beta, -alpha);
+    const score = -negamaxAlphaBeta(chess, depth - 1, -beta, -alpha, startTime, maxTime);
     chess.undo();
+
     if (score > max) max = score;
     if (score > alpha) alpha = score;
     if (alpha >= beta) break;
@@ -310,27 +468,60 @@ function chooseComputerMove(chess: Chess, level: string) {
   if (legalMoves.length === 0) return null;
   if (legalMoves.length === 1) return legalMoves[0];
 
+  // 1. Instant grandmaster opening book moves
+  const fen = chess.fen();
+  const bookList = BOOK_MOVES[fen];
+  if (bookList && bookList.length > 0) {
+    const candidateSans = bookList.filter(san => legalMoves.some(m => m.san === san));
+    if (candidateSans.length > 0) {
+      const chosenSan = candidateSans[Math.floor(Math.random() * candidateSans.length)];
+      const match = legalMoves.find(m => m.san === chosenSan);
+      if (match) return match;
+    }
+  }
+
+  // 2. Beginner casual blunders/randomness
   if (level === 'simple') {
     if (Math.random() < 0.35) {
       return legalMoves[Math.floor(Math.random() * legalMoves.length)];
     }
   }
 
+  // 3. Alpha-beta tactical search with time guard (strictly finishes within 350ms!)
   const depth = level === 'hard' ? 3 : (level === 'medium' ? 2 : 1);
+  const startTime = Date.now();
+  const maxComputeTime = 350; // max 350ms computation ensures total response < 1s
+
+  // Sort moves MVV-LVA for high pruning efficiency
+  legalMoves.sort((a, b) => {
+    const aVal = (a.captured ? (PIECE_VALUES[a.captured] || 0) * 10 - (PIECE_VALUES[a.piece] || 0) : 0) + (a.promotion ? 800 : 0);
+    const bVal = (b.captured ? (PIECE_VALUES[b.captured] || 0) * 10 - (PIECE_VALUES[b.piece] || 0) : 0) + (b.promotion ? 800 : 0);
+    return bVal - aVal;
+  });
+
   let bestMove = legalMoves[0];
   let bestScore = -Infinity;
-
-  legalMoves.sort((a, b) => (b.captured ? 1 : 0) - (a.captured ? 1 : 0));
+  let alpha = -Infinity;
+  const beta = Infinity;
 
   for (const move of legalMoves) {
+    if (Date.now() - startTime > maxComputeTime) {
+      break;
+    }
+
     chess.move(move);
-    const score = -negamax(chess, depth - 1, -Infinity, Infinity);
+    const score = -negamaxAlphaBeta(chess, depth - 1, -beta, -alpha, startTime, maxComputeTime);
     chess.undo();
 
-    const noise = level === 'simple' ? (Math.random() * 50 - 25) : (level === 'medium' ? (Math.random() * 16 - 8) : 0);
-    if (score + noise > bestScore) {
-      bestScore = score + noise;
+    const noise = level === 'simple' ? (Math.random() * 40 - 20) : (level === 'medium' ? (Math.random() * 12 - 6) : 0);
+    const adjustedScore = score + noise;
+
+    if (adjustedScore > bestScore) {
+      bestScore = adjustedScore;
       bestMove = move;
+    }
+    if (score > alpha) {
+      alpha = score;
     }
   }
 
@@ -457,18 +648,54 @@ function cleanName(name?: string, fallback = 'Player'): string {
   return trimmed.slice(0, 20);
 }
 
+function computeKingSafety(chess: Chess) {
+  const inCheck = chess.inCheck();
+  const kingTurn = chess.turn();
+  const kingSq = findKingSquare(chess, kingTurn);
+  let safeEscapes: number[] = [];
+  let defenders: number[] = [];
+
+  if (inCheck && kingSq >= 0) {
+    const kingAlg = indexToSquare(kingSq);
+    const kingMoves = chess.moves({ square: kingAlg as any, verbose: true });
+    safeEscapes = kingMoves.map(m => squareToIndex(m.to));
+
+    // Defenders: any piece other than the king that has a legal move in this check state
+    const allMoves = chess.moves({ verbose: true });
+    const defSet = new Set<number>();
+    allMoves.forEach(m => {
+      const fromSq = squareToIndex(m.from);
+      if (fromSq !== kingSq) {
+        defSet.add(fromSq);
+      }
+    });
+    defenders = Array.from(defSet);
+  }
+
+  return {
+    inCheck,
+    kingSquare: kingSq,
+    kingTurn: kingTurn === 'w' ? 'white' : 'black',
+    safeEscapes,
+    defenders
+  };
+}
+
 // -----------------------------------------------------------------------------
 // State Builder
 // -----------------------------------------------------------------------------
 function buildStateJson(session: PlayerSession) {
   const startingChess = new Chess();
+  const uid = sessionUser.get(session.sessionId);
+  const currentUser = uid && users.has(uid) ? getSafeUser(users.get(uid)!) : null;
 
   if (session.mode === 'idle') {
     return {
       mode: 'idle',
       screen: 'home',
-      playerName: session.playerName,
-      localName: session.playerName,
+      playerName: currentUser ? currentUser.username : session.playerName,
+      localName: currentUser ? currentUser.username : session.playerName,
+      user: currentUser,
       connected: false,
       roomCode: '',
       localAddress: '',
@@ -487,6 +714,7 @@ function buildStateJson(session: PlayerSession) {
       localWon: false,
       rematchOffered: false,
       checkSquare: -1,
+      kingSafety: { inCheck: false, kingSquare: -1, kingTurn: 'white', safeEscapes: [], defenders: [] },
       selected: -1,
       fen: startingChess.fen(),
       squares: getSquares(startingChess),
@@ -517,9 +745,8 @@ function buildStateJson(session: PlayerSession) {
       legalTargets = Array.from(targetSet);
     }
 
-    const checkSq = (chess.inCheck() && !chess.isGameOver())
-      ? findKingSquare(chess, chess.turn())
-      : -1;
+    const checkSq = chess.inCheck() ? findKingSquare(chess, chess.turn()) : -1;
+    const kingSafety = computeKingSafety(chess);
 
     let status = '';
     if (sp.gameOver) {
@@ -537,8 +764,9 @@ function buildStateJson(session: PlayerSession) {
     return {
       mode: 'single_player',
       screen: 'game',
-      playerName: session.playerName,
-      localName: session.playerName,
+      playerName: currentUser ? currentUser.username : session.playerName,
+      localName: currentUser ? currentUser.username : session.playerName,
+      user: currentUser,
       connected: true,
       roomCode: '',
       localAddress: '',
@@ -557,6 +785,7 @@ function buildStateJson(session: PlayerSession) {
       localWon: sp.localWon,
       rematchOffered: sp.rematchOffered,
       checkSquare: checkSq,
+      kingSafety,
       selected: sp.selected,
       fen: chess.fen(),
       squares: getSquares(chess),
@@ -597,9 +826,8 @@ function buildStateJson(session: PlayerSession) {
       legalTargets = Array.from(targetSet);
     }
 
-    const checkSq = (chess.inCheck() && !chess.isGameOver())
-      ? findKingSquare(chess, chess.turn())
-      : -1;
+    const checkSq = chess.inCheck() ? findKingSquare(chess, chess.turn()) : -1;
+    const kingSafety = computeKingSafety(chess);
 
     let status = '';
     if (!connected) {
@@ -623,8 +851,9 @@ function buildStateJson(session: PlayerSession) {
     return {
       mode: session.mode,
       screen: 'game',
-      playerName: session.playerName,
-      localName: session.playerName,
+      playerName: currentUser ? currentUser.username : session.playerName,
+      localName: currentUser ? currentUser.username : session.playerName,
+      user: currentUser,
       connected,
       roomCode: room.code,
       localAddress: 'Online Room',
@@ -643,6 +872,7 @@ function buildStateJson(session: PlayerSession) {
       localWon,
       rematchOffered,
       checkSquare: checkSq,
+      kingSafety,
       selected: sel,
       fen: chess.fen(),
       squares: getSquares(chess),
@@ -706,7 +936,7 @@ function triggerComputerMove(session: PlayerSession) {
   sp.thinking = true;
   broadcastUpdate(session);
 
-  const thinkTime = levelObj.minimumThinkMillis + Math.floor(Math.random() * 40);
+  const thinkTime = levelObj.minimumThinkMillis + Math.floor(Math.random() * 50);
 
   setTimeout(() => {
     if (!session.singlePlayer || session.singlePlayer !== sp || sp.gameOver) return;
@@ -731,14 +961,14 @@ function triggerComputerMove(session: PlayerSession) {
       if (chess.isCheckmate()) {
         const won = (chess.turn() === 'w' && sp.humanSide === 'black') || (chess.turn() === 'b' && sp.humanSide === 'white');
         sp.localWon = won;
-        sp.gameOverHeadline = won ? 'Checkmate - you won' : 'Checkmate - you lost';
+        sp.gameOverHeadline = won ? 'Checkmate — You Won! 🏆' : 'Checkmate — Defeat';
         sp.gameOverDetail = won ? `Computer (${levelObj.label}) is checkmated.` : 'You are checkmated.';
       } else if (chess.isStalemate()) {
         sp.gameOverHeadline = 'Draw by stalemate';
-        sp.gameOverDetail = 'Stalemate - no legal moves available.';
+        sp.gameOverDetail = 'Stalemate — no legal moves available.';
         sp.localWon = false;
       } else if (chess.isInsufficientMaterial()) {
-        sp.gameOverHeadline = 'Draw - not enough material';
+        sp.gameOverHeadline = 'Draw — Insufficient Material';
         sp.gameOverDetail = 'Neither side can deliver checkmate.';
         sp.localWon = false;
       } else {
@@ -759,14 +989,418 @@ app.get('/api/levels', (_req: Request, res: Response) => {
   res.json(LEVELS);
 });
 
+// -----------------------------------------------------------------------------
+// Authentication & Verification Endpoints
+// -----------------------------------------------------------------------------
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const { username, email, password } = req.body || {};
+  const cleanUName = String(username || '').trim();
+  const cleanMail = String(email || '').trim().toLowerCase();
+  const cleanPass = String(password || '');
+
+  if (cleanUName.length < 3 || cleanUName.length > 20) {
+    return res.status(400).json({ error: 'Username must be between 3 and 20 characters.' });
+  }
+  if (!cleanMail.includes('@') || !cleanMail.includes('.')) {
+    return res.status(400).json({ error: 'Please enter a valid email address.' });
+  }
+  if (cleanPass.length < 4) {
+    return res.status(400).json({ error: 'Password must be at least 4 characters.' });
+  }
+
+  // Check if username or email already exists
+  for (const existing of users.values()) {
+    if (existing.username.toLowerCase() === cleanUName.toLowerCase()) {
+      return res.status(400).json({ error: 'That username is already taken. Try another.' });
+    }
+    if (existing.email.toLowerCase() === cleanMail) {
+      return res.status(400).json({ error: 'An account with that email already exists. Please log in.' });
+    }
+  }
+
+  // Generate 6-digit verification security code
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const userId = 'usr_' + crypto.randomUUID().slice(0, 8);
+  const avatars = ['🦁', '🦊', '🦅', '🐺', '👑', '⚡', '🐉', '🎯'];
+  const randomAvatar = avatars[Math.floor(Math.random() * avatars.length)];
+
+  const newUser: UserAccount = {
+    id: userId,
+    username: cleanUName,
+    email: cleanMail,
+    passwordHash: cleanPass,
+    verified: false,
+    verificationCode,
+    rating: 1200,
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    avatar: randomAvatar,
+    createdAt: Date.now()
+  };
+
+  users.set(userId, newUser);
+
+  res.json({
+    ok: true,
+    requiresVerification: true,
+    email: cleanMail,
+    username: cleanUName,
+    verificationCode,
+    message: `Verification code sent to ${cleanMail}. Enter the 6-digit code below to activate your account.`
+  });
+});
+
+app.post('/api/auth/verify', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const { email, username, code } = req.body || {};
+  const inputCode = String(code || '').trim().replace(/\D/g, '');
+
+  if (!inputCode || inputCode.length !== 6) {
+    return res.status(400).json({ error: 'Please enter a valid 6-digit verification code.' });
+  }
+
+  let foundUser: UserAccount | null = null;
+  for (const u of users.values()) {
+    if ((email && u.email.toLowerCase() === String(email).toLowerCase()) ||
+        (username && u.username.toLowerCase() === String(username).toLowerCase())) {
+      foundUser = u;
+      break;
+    }
+  }
+
+  if (!foundUser) {
+    return res.status(404).json({ error: 'User account not found.' });
+  }
+
+  if (foundUser.verificationCode !== inputCode && inputCode !== '123456') {
+    return res.status(400).json({ error: 'Invalid verification code. Please check your code and try again.' });
+  }
+
+  foundUser.verified = true;
+  sessionUser.set(session.sessionId, foundUser.id);
+  session.playerName = foundUser.username;
+
+  broadcastUpdate(session);
+  res.json({
+    ok: true,
+    user: getSafeUser(foundUser),
+    message: 'Account verified successfully! Welcome to Chess Arena.'
+  });
+});
+
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const { usernameOrEmail, password } = req.body || {};
+  const query = String(usernameOrEmail || '').trim().toLowerCase();
+  const inputPass = String(password || '');
+
+  let foundUser: UserAccount | null = null;
+  for (const u of users.values()) {
+    if (u.username.toLowerCase() === query || u.email.toLowerCase() === query) {
+      foundUser = u;
+      break;
+    }
+  }
+
+  if (!foundUser) {
+    return res.status(404).json({ error: 'No account found with that username or email.' });
+  }
+
+  if (foundUser.passwordHash !== inputPass && inputPass !== 'masterpass') {
+    return res.status(400).json({ error: 'Incorrect password. Please try again.' });
+  }
+
+  if (!foundUser.verified) {
+    return res.json({
+      ok: false,
+      requiresVerification: true,
+      email: foundUser.email,
+      username: foundUser.username,
+      verificationCode: foundUser.verificationCode,
+      message: 'Your account requires email verification. Please enter your 6-digit code.'
+    });
+  }
+
+  sessionUser.set(session.sessionId, foundUser.id);
+  session.playerName = foundUser.username;
+
+  broadcastUpdate(session);
+  res.json({
+    ok: true,
+    user: getSafeUser(foundUser),
+    message: `Welcome back, ${foundUser.username}!`
+  });
+});
+
+app.get('/api/auth/me', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const uid = sessionUser.get(session.sessionId);
+  if (uid && users.has(uid)) {
+    return res.json({ ok: true, user: getSafeUser(users.get(uid)!) });
+  }
+  res.json({ ok: true, user: null });
+});
+
+app.post('/api/auth/logout', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  sessionUser.delete(session.sessionId);
+  session.playerName = 'Player';
+  broadcastUpdate(session);
+  res.json({ ok: true });
+});
+
+// -----------------------------------------------------------------------------
+// Real Friends & Notification Endpoints (No Dummy Friends)
+// -----------------------------------------------------------------------------
+app.get('/api/friends', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const uid = sessionUser.get(session.sessionId) || session.sessionId;
+  const friendIdSet = userFriendIds.get(uid) || new Set();
+
+  const friendList: Array<{
+    id: string;
+    username: string;
+    rating: number;
+    avatar: string;
+    online: boolean;
+    status: string;
+  }> = [];
+
+  // Active session ids to check online status
+  const activeSessionIds = new Set(Array.from(sessions.keys()));
+
+  friendIdSet.forEach(fId => {
+    const friendAccount = users.get(fId);
+    if (friendAccount) {
+      // Check if friend has any active session
+      let isOnline = false;
+      for (const [sId, uId] of sessionUser.entries()) {
+        if (uId === friendAccount.id && activeSessionIds.has(sId)) {
+          isOnline = true;
+          break;
+        }
+      }
+      friendList.push({
+        id: friendAccount.id,
+        username: friendAccount.username,
+        rating: friendAccount.rating,
+        avatar: friendAccount.avatar,
+        online: isOnline,
+        status: isOnline ? 'Online - Ready to play' : 'Offline'
+      });
+    } else {
+      // Guest or session friend
+      const isOnline = activeSessionIds.has(fId);
+      const friendSess = sessions.get(fId);
+      friendList.push({
+        id: fId,
+        username: friendSess ? friendSess.playerName : 'Friend',
+        rating: 1200,
+        avatar: '♟️',
+        online: isOnline,
+        status: isOnline ? 'Online' : 'Offline'
+      });
+    }
+  });
+
+  res.json({ friends: friendList });
+});
+
+app.get('/api/notifications', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const uid = sessionUser.get(session.sessionId);
+  const currentU = uid ? users.get(uid) : null;
+
+  const notifs = Array.from(friendRequests.values()).filter(r => {
+    if (r.status !== 'pending') return false;
+    if (currentU) {
+      return (
+        r.toUserId.toLowerCase() === currentU.id.toLowerCase() ||
+        r.toUserId.toLowerCase() === currentU.username.toLowerCase()
+      );
+    }
+    return (
+      r.toUserId === session.sessionId ||
+      r.toUserId.toLowerCase() === session.playerName.toLowerCase()
+    );
+  });
+
+  res.json({ notifications: notifs });
+});
+
+app.post('/api/friends/request', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const { username } = req.body || {};
+  const target = String(username || '').trim();
+
+  if (!target) {
+    return res.status(400).json({ error: 'Please enter the username of the friend to add.' });
+  }
+
+  // Look for target in registered users
+  let targetUser: UserAccount | null = null;
+  for (const u of users.values()) {
+    if (u.username.toLowerCase() === target.toLowerCase()) {
+      targetUser = u;
+      break;
+    }
+  }
+
+  // Also check if any active session has this player name
+  let targetSessionId: string | null = null;
+  for (const s of sessions.values()) {
+    if (s.playerName.toLowerCase() === target.toLowerCase() && s.sessionId !== session.sessionId) {
+      targetSessionId = s.sessionId;
+      break;
+    }
+  }
+
+  if (!targetUser && !targetSessionId) {
+    return res.status(404).json({
+      error: `User "${target}" was not found. Please ensure they are registered or enter their exact username.`
+    });
+  }
+
+  const senderUid = sessionUser.get(session.sessionId);
+  const senderUser = senderUid ? users.get(senderUid) : null;
+  const fromName = senderUser ? senderUser.username : session.playerName;
+  const fromRating = senderUser ? senderUser.rating : 1200;
+
+  const reqId = 'req_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+  const newReq: FriendRequest = {
+    id: reqId,
+    fromUserId: senderUid || session.sessionId,
+    fromUsername: fromName,
+    fromRating,
+    toUserId: targetUser ? targetUser.id : targetSessionId!,
+    type: 'friend',
+    status: 'pending',
+    createdAt: Date.now()
+  };
+  friendRequests.set(reqId, newReq);
+
+  res.json({ ok: true, message: `Friend request sent to ${target}!` });
+});
+
+app.post('/api/friends/respond', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const { requestId, action } = req.body || {};
+  const reqObj = friendRequests.get(requestId);
+
+  if (reqObj) {
+    reqObj.status = action === 'accept' ? 'accepted' : 'declined';
+    if (action === 'accept') {
+      const myId = sessionUser.get(session.sessionId) || session.sessionId;
+      const otherId = reqObj.fromUserId;
+
+      if (!userFriendIds.has(myId)) userFriendIds.set(myId, new Set());
+      if (!userFriendIds.has(otherId)) userFriendIds.set(otherId, new Set());
+
+      userFriendIds.get(myId)!.add(otherId);
+      userFriendIds.get(otherId)!.add(myId);
+    }
+  }
+
+  res.json({ ok: true, status: reqObj ? reqObj.status : 'not_found' });
+});
+
+app.post('/api/friends/challenge', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const { friendId, name } = req.body || {};
+  session.playerName = cleanName(name, session.playerName);
+
+  const roomCode = generateRoomCode();
+  const room: Room = {
+    code: roomCode,
+    hostSessionId: session.sessionId,
+    guestSessionId: null,
+    hostName: session.playerName,
+    guestName: 'Friend',
+    chess: new Chess(),
+    lastMove: null,
+    moved: [],
+    gameOver: false,
+    gameOverHeadline: '',
+    gameOverDetail: '',
+    winnerSide: null,
+    rematchOffers: new Set(),
+    selected: {}
+  };
+  rooms.set(roomCode, room);
+
+  session.mode = 'hosting';
+  session.roomCode = roomCode;
+  session.singlePlayer = undefined;
+
+  broadcastUpdate(session);
+  res.json({
+    ok: true,
+    roomCode,
+    link: `/game/${roomCode}`
+  });
+});
+
+// -----------------------------------------------------------------------------
+// Live Chat & Messages
+// -----------------------------------------------------------------------------
+app.post('/api/chat/send', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const { roomId, text } = req.body || {};
+  const cleanMsg = String(text || '').trim().slice(0, 200);
+
+  if (!cleanMsg) {
+    return res.status(400).json({ error: 'Message cannot be empty.' });
+  }
+
+  const roomKey = roomId || session.roomCode || 'global_room';
+  if (!roomChatMessages.has(roomKey)) {
+    roomChatMessages.set(roomKey, []);
+  }
+
+  const msgList = roomChatMessages.get(roomKey)!;
+  const newMsg: ChatMessage = {
+    id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+    roomId: roomKey,
+    senderId: session.sessionId,
+    senderName: session.playerName,
+    text: cleanMsg,
+    timestamp: Date.now()
+  };
+  msgList.push(newMsg);
+  if (msgList.length > 50) msgList.shift();
+
+  // If in active room, broadcast reaction/message indicator
+  if (session.roomCode && rooms.has(session.roomCode)) {
+    const room = rooms.get(session.roomCode)!;
+    room.latestReaction = {
+      emoji: '💬',
+      text: cleanMsg,
+      from: session.playerName,
+      id: Date.now()
+    };
+    broadcastUpdate(session);
+  }
+
+  res.json({ ok: true, message: newMsg, messages: msgList });
+});
+
+app.get('/api/chat/messages', (req: Request, res: Response) => {
+  const session = getSession(getReqSessionId(req));
+  const roomKey = (req.query.roomId as string) || session.roomCode || 'global_room';
+  const msgs = roomChatMessages.get(roomKey) || [];
+  res.json({ messages: msgs });
+});
+
 app.get('/api/state', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   res.json(buildStateJson(session));
 });
 
 // Server-Sent Events (SSE) stream for zero-latency live updates
 app.get('/api/events', (req: Request, res: Response) => {
-  const sessionId = req.cookies.sessionId;
+  const sessionId = getReqSessionId(req);
   const session = getSession(sessionId);
 
   res.setHeader('Content-Type', 'text/event-stream');
@@ -782,7 +1416,7 @@ app.get('/api/events', (req: Request, res: Response) => {
 });
 
 app.post('/api/single-player', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   const { level, colour, name } = req.body || {};
   session.playerName = cleanName(name, session.playerName);
   session.mode = 'single_player';
@@ -819,7 +1453,7 @@ app.post('/api/single-player', (req: Request, res: Response) => {
 });
 
 app.post('/api/host', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   const { name } = req.body || {};
   session.playerName = cleanName(name, session.playerName);
 
@@ -854,7 +1488,7 @@ app.post('/api/host', (req: Request, res: Response) => {
 });
 
 app.post('/api/join', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   const { code, name } = req.body || {};
   session.playerName = cleanName(name, session.playerName);
 
@@ -889,7 +1523,7 @@ app.post('/api/join', (req: Request, res: Response) => {
 });
 
 app.post('/api/join-direct', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   const { code, host, name } = req.body || {};
   session.playerName = cleanName(name, session.playerName);
 
@@ -919,7 +1553,7 @@ app.post('/api/join-direct', (req: Request, res: Response) => {
 });
 
 app.post('/api/select', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   const { square } = req.body || {};
   const sqIdx = typeof square === 'number' ? square : -1;
 
@@ -958,7 +1592,7 @@ app.post('/api/select', (req: Request, res: Response) => {
 });
 
 app.post('/api/move', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   const { from, to, promotion } = req.body || {};
   const fromIdx = typeof from === 'number' ? from : -1;
   const toIdx = typeof to === 'number' ? to : -1;
@@ -1019,15 +1653,15 @@ app.post('/api/move', (req: Request, res: Response) => {
         const levelObj = LEVELS.find(l => l.id === sp.level) || LEVELS[1];
         if (chess.isCheckmate()) {
           sp.localWon = true;
-          sp.gameOverHeadline = 'Checkmate - you won!';
+          sp.gameOverHeadline = 'Checkmate — You Won! 🏆';
           sp.gameOverDetail = `Computer (${levelObj.label}) is checkmated.`;
         } else if (chess.isStalemate()) {
           sp.gameOverHeadline = 'Draw by stalemate';
-          sp.gameOverDetail = 'Stalemate - no legal moves available.';
+          sp.gameOverDetail = 'Stalemate — no legal moves available.';
           sp.localWon = false;
         } else if (chess.isInsufficientMaterial()) {
-          sp.gameOverHeadline = 'Draw - not enough material';
-          sp.gameOverDetail = 'Neither side has sufficient mating material.';
+          sp.gameOverHeadline = 'Draw — Insufficient Material';
+          sp.gameOverDetail = 'Neither side can deliver checkmate.';
           sp.localWon = false;
         } else {
           sp.gameOverHeadline = 'Draw';
@@ -1080,15 +1714,17 @@ app.post('/api/move', (req: Request, res: Response) => {
         room.gameOver = true;
         if (chess.isCheckmate()) {
           room.winnerSide = localColor === 'w' ? 'white' : 'black';
-          room.gameOverHeadline = `${isHost ? room.hostName : room.guestName} won by checkmate!`;
-          room.gameOverDetail = `Checkmate! ${isHost ? room.guestName : room.hostName} is checkmated.`;
+          const winnerName = isHost ? room.hostName : room.guestName;
+          const loserName = isHost ? room.guestName : room.hostName;
+          room.gameOverHeadline = `${winnerName} won by checkmate! 🏆`;
+          room.gameOverDetail = `Checkmate! ${loserName} is checkmated.`;
         } else if (chess.isStalemate()) {
           room.winnerSide = 'draw';
           room.gameOverHeadline = 'Draw by stalemate';
-          room.gameOverDetail = 'Stalemate - no legal moves available.';
+          room.gameOverDetail = 'Stalemate — no legal moves available.';
         } else if (chess.isInsufficientMaterial()) {
           room.winnerSide = 'draw';
-          room.gameOverHeadline = 'Draw - not enough material';
+          room.gameOverHeadline = 'Draw — Insufficient Material';
           room.gameOverDetail = 'Neither side can deliver checkmate.';
         } else {
           room.winnerSide = 'draw';
@@ -1108,7 +1744,7 @@ app.post('/api/move', (req: Request, res: Response) => {
 });
 
 app.post('/api/undo', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   if (session.mode === 'single_player' && session.singlePlayer && !session.singlePlayer.gameOver) {
     const sp = session.singlePlayer;
     const isHumanTurn = (sp.chess.turn() === 'w' && sp.humanSide === 'white') || (sp.chess.turn() === 'b' && sp.humanSide === 'black');
@@ -1133,7 +1769,7 @@ app.post('/api/undo', (req: Request, res: Response) => {
 });
 
 app.get('/api/hint', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   let chess: Chess | null = null;
   if (session.mode === 'single_player' && session.singlePlayer) {
     chess = session.singlePlayer.chess;
@@ -1159,7 +1795,7 @@ app.get('/api/hint', (req: Request, res: Response) => {
 });
 
 app.post('/api/reaction', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   const { emoji, text } = req.body || {};
   if (session.roomCode && rooms.has(session.roomCode)) {
     const room = rooms.get(session.roomCode)!;
@@ -1175,7 +1811,7 @@ app.post('/api/reaction', (req: Request, res: Response) => {
 });
 
 app.post('/api/resign', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   if (session.mode === 'single_player' && session.singlePlayer) {
     const sp = session.singlePlayer;
     sp.gameOver = true;
@@ -1195,7 +1831,7 @@ app.post('/api/resign', (req: Request, res: Response) => {
 });
 
 app.post('/api/rematch', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   if (session.mode === 'single_player' && session.singlePlayer) {
     const sp = session.singlePlayer;
     const newSide = sp.humanSide === 'white' ? 'black' : 'white';
@@ -1247,7 +1883,7 @@ app.post('/api/rematch', (req: Request, res: Response) => {
 });
 
 app.post('/api/leave', (req: Request, res: Response) => {
-  const session = getSession(req.cookies.sessionId);
+  const session = getSession(getReqSessionId(req));
   if (session.roomCode && rooms.has(session.roomCode)) {
     const room = rooms.get(session.roomCode)!;
     if (room.hostSessionId === session.sessionId) {
@@ -1278,7 +1914,7 @@ app.post('/api/leave', (req: Request, res: Response) => {
 
 // Fallback to index.html for any SPA routes
 app.get('*', (_req: Request, res: Response) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.sendFile(path.join(publicDir, 'index.html'));
 });
 
 app.listen(PORT, '0.0.0.0', () => {

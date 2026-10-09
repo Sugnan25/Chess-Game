@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="tournament">
+<html lang="en" data-theme="tournament" data-pieces="staunton">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
@@ -11,9 +11,12 @@
 </head>
 <body>
 
-<!-- SVG Pieces Sprite Definition (Standard Vector Chess Set) -->
+<!-- SVG Pieces Sprite Definitions: Standard Staunton, Coins/Tokens, Woodcraft, Cyberpunk -->
 <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
   <defs>
+    <!-- ------------------------------------------------------------- -->
+    <!-- 1. STANDARD STAUNTON VECTOR PIECES                            -->
+    <!-- ------------------------------------------------------------- -->
     <!-- White Pawn -->
     <g id="piece-wp">
       <path d="m 22.5,9 c -2.21,0 -4,1.79 -4,4 0,0.89 0.29,1.71 0.78,2.38 C 17.33,16.5 16,18.59 16,21 c 0,2.03 0.94,3.84 2.41,5.03 C 15.41,27.09 11,31.58 11,39.5 l 23,0 c 0,-7.92 -4.41,-12.41 -7.41,-13.47 C 28.06,24.84 29,23.03 29,21 29,18.59 27.67,16.5 25.72,15.38 26.21,14.71 26.5,13.89 26.5,13 c 0,-2.21 -1.79,-4 -4,-4 z" fill="#ffffff" stroke="#1c1c1c" stroke-width="1.5" stroke-linecap="round"/>
@@ -97,13 +100,351 @@
       <path d="m 11.5,37 c 5.5,2 16.5,2 22,0 v 3.5 h -22 z" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
       <circle cx="22.5" cy="6.5" r="1.5" fill="#242220" stroke="#f6f4f0" stroke-width="1.5"/>
     </g>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- 2. COINS & MEDALLIONS PIECE SET (Circular Metallic Tokens)    -->
+    <!-- ------------------------------------------------------------- -->
+    <!-- White Coin Base -->
+    <radialGradient id="grad-coin-white" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="70%" stop-color="#e8ecf2"/>
+      <stop offset="100%" stop-color="#b8c2d1"/>
+    </radialGradient>
+    <!-- Black Coin Base -->
+    <radialGradient id="grad-coin-black" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#3d3733"/>
+      <stop offset="65%" stop-color="#1f1b18"/>
+      <stop offset="100%" stop-color="#0e0c0a"/>
+    </radialGradient>
+    <!-- Gold Rim -->
+    <linearGradient id="grad-gold-rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffd966"/>
+      <stop offset="50%" stop-color="#c69214"/>
+      <stop offset="100%" stop-color="#e0a92c"/>
+    </linearGradient>
+
+    <!-- Coin White Pawn -->
+    <g id="coin-wp">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-white)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#9bb0cc" stroke-width="1" stroke-dasharray="2,2"/>
+      <circle cx="22.5" cy="16" r="4.5" fill="#30415d"/>
+      <path d="M 16 31 C 16 23, 29 23, 29 31 Z" fill="#30415d"/>
+      <rect x="14" y="30" width="17" height="3" rx="1.5" fill="#30415d"/>
+    </g>
+    <!-- Coin White Knight -->
+    <g id="coin-wn">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-white)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#9bb0cc" stroke-width="1" stroke-dasharray="2,2"/>
+      <path d="M 16 32 L 29 32 L 29 26 C 29 21, 28 14, 21 13 C 18 13, 14 15, 14 18 C 14 20, 17 21, 19 21 C 15 22, 13 25, 16 29 Z" fill="#30415d"/>
+      <circle cx="22" cy="17" r="1.5" fill="#ffffff"/>
+    </g>
+    <!-- Coin White Bishop -->
+    <g id="coin-wb">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-white)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#9bb0cc" stroke-width="1" stroke-dasharray="2,2"/>
+      <circle cx="22.5" cy="12" r="2.5" fill="#30415d"/>
+      <path d="M 15 32 L 30 32 C 30 25, 27 16, 22.5 16 C 18 16, 15 25, 15 32 Z" fill="#30415d"/>
+      <line x1="20" y1="20" x2="25" y2="25" stroke="#ffffff" stroke-width="1.8"/>
+    </g>
+    <!-- Coin White Rook -->
+    <g id="coin-wr">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-white)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#9bb0cc" stroke-width="1" stroke-dasharray="2,2"/>
+      <path d="M 15 32 L 30 32 L 28 20 L 31 16 L 31 13 L 28 13 L 28 16 L 24 16 L 24 13 L 21 13 L 21 16 L 17 16 L 17 13 L 14 13 L 14 16 L 17 20 Z" fill="#30415d"/>
+    </g>
+    <!-- Coin White Queen -->
+    <g id="coin-wq">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-white)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#9bb0cc" stroke-width="1" stroke-dasharray="2,2"/>
+      <circle cx="14" cy="15" r="1.5" fill="#c69214"/>
+      <circle cx="18" cy="13" r="1.5" fill="#c69214"/>
+      <circle cx="22.5" cy="12" r="1.8" fill="#c69214"/>
+      <circle cx="27" cy="13" r="1.5" fill="#c69214"/>
+      <circle cx="31" cy="15" r="1.5" fill="#c69214"/>
+      <path d="M 14 17 L 31 17 L 29 27 L 31 32 L 14 32 L 16 27 Z" fill="#30415d"/>
+    </g>
+    <!-- Coin White King -->
+    <g id="coin-wk">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-white)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#9bb0cc" stroke-width="1" stroke-dasharray="2,2"/>
+      <path d="M 22.5 11 L 22.5 16 M 20 13.5 L 25 13.5" stroke="#c69214" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 14 32 L 31 32 C 30 24, 27 18, 22.5 18 C 18 18, 15 24, 14 32 Z" fill="#30415d"/>
+      <circle cx="22.5" cy="24" r="2.5" fill="#ffd966"/>
+    </g>
+
+    <!-- Coin Black Pawn -->
+    <g id="coin-bp">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-black)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#5a4f47" stroke-width="1" stroke-dasharray="2,2"/>
+      <circle cx="22.5" cy="16" r="4.5" fill="#ffd966"/>
+      <path d="M 16 31 C 16 23, 29 23, 29 31 Z" fill="#ffd966"/>
+      <rect x="14" y="30" width="17" height="3" rx="1.5" fill="#ffd966"/>
+    </g>
+    <!-- Coin Black Knight -->
+    <g id="coin-bn">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-black)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#5a4f47" stroke-width="1" stroke-dasharray="2,2"/>
+      <path d="M 16 32 L 29 32 L 29 26 C 29 21, 28 14, 21 13 C 18 13, 14 15, 14 18 C 14 20, 17 21, 19 21 C 15 22, 13 25, 16 29 Z" fill="#ffd966"/>
+      <circle cx="22" cy="17" r="1.5" fill="#1f1b18"/>
+    </g>
+    <!-- Coin Black Bishop -->
+    <g id="coin-bb">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-black)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#5a4f47" stroke-width="1" stroke-dasharray="2,2"/>
+      <circle cx="22.5" cy="12" r="2.5" fill="#ffd966"/>
+      <path d="M 15 32 L 30 32 C 30 25, 27 16, 22.5 16 C 18 16, 15 25, 15 32 Z" fill="#ffd966"/>
+      <line x1="20" y1="20" x2="25" y2="25" stroke="#1f1b18" stroke-width="1.8"/>
+    </g>
+    <!-- Coin Black Rook -->
+    <g id="coin-br">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-black)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#5a4f47" stroke-width="1" stroke-dasharray="2,2"/>
+      <path d="M 15 32 L 30 32 L 28 20 L 31 16 L 31 13 L 28 13 L 28 16 L 24 16 L 24 13 L 21 13 L 21 16 L 17 16 L 17 13 L 14 13 L 14 16 L 17 20 Z" fill="#ffd966"/>
+    </g>
+    <!-- Coin Black Queen -->
+    <g id="coin-bq">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-black)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#5a4f47" stroke-width="1" stroke-dasharray="2,2"/>
+      <circle cx="14" cy="15" r="1.5" fill="#ffffff"/>
+      <circle cx="18" cy="13" r="1.5" fill="#ffffff"/>
+      <circle cx="22.5" cy="12" r="1.8" fill="#ffffff"/>
+      <circle cx="27" cy="13" r="1.5" fill="#ffffff"/>
+      <circle cx="31" cy="15" r="1.5" fill="#ffffff"/>
+      <path d="M 14 17 L 31 17 L 29 27 L 31 32 L 14 32 L 16 27 Z" fill="#ffd966"/>
+    </g>
+    <!-- Coin Black King -->
+    <g id="coin-bk">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-coin-black)" stroke="url(#grad-gold-rim)" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16" fill="none" stroke="#5a4f47" stroke-width="1" stroke-dasharray="2,2"/>
+      <path d="M 22.5 11 L 22.5 16 M 20 13.5 L 25 13.5" stroke="#ffffff" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 14 32 L 31 32 C 30 24, 27 18, 22.5 18 C 18 18, 15 24, 14 32 Z" fill="#ffd966"/>
+      <circle cx="22.5" cy="24" r="2.5" fill="#1f1b18"/>
+    </g>
+    <!-- ------------------------------------------------------------- -->
+    <!-- 3. MODERN GEM TOKENS (Hexagonal Futuristic Badges)            -->
+    <!-- ------------------------------------------------------------- -->
+    <linearGradient id="grad-token-white" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="60%" stop-color="#d4e4f7"/>
+      <stop offset="100%" stop-color="#9fc2ea"/>
+    </linearGradient>
+    <linearGradient id="grad-token-black" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2c3038"/>
+      <stop offset="70%" stop-color="#181a1f"/>
+      <stop offset="100%" stop-color="#0e1014"/>
+    </linearGradient>
+
+    <!-- Token White Pawn -->
+    <g id="token-wp">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-white)" stroke="#3b82f6" stroke-width="2.5"/>
+      <circle cx="22.5" cy="18" r="4.5" fill="#1e3a8a"/>
+      <path d="M 16 31 C 16 23, 29 23, 29 31 Z" fill="#1e3a8a"/>
+      <rect x="14" y="30" width="17" height="3" rx="1.5" fill="#1e3a8a"/>
+    </g>
+    <!-- Token White Knight -->
+    <g id="token-wp">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-white)" stroke="#3b82f6" stroke-width="2.5"/>
+      <circle cx="22.5" cy="18" r="4.5" fill="#1e3a8a"/>
+      <path d="M 16 31 C 16 23, 29 23, 29 31 Z" fill="#1e3a8a"/>
+      <rect x="14" y="30" width="17" height="3" rx="1.5" fill="#1e3a8a"/>
+    </g>
+    <!-- Token White Knight -->
+    <g id="token-wn">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-white)" stroke="#3b82f6" stroke-width="2.5"/>
+      <path d="M 16 32 L 29 32 L 29 26 C 29 21, 28 14, 21 13 C 18 13, 14 15, 14 18 C 14 20, 17 21, 19 21 C 15 22, 13 25, 16 29 Z" fill="#1e3a8a"/>
+      <circle cx="22" cy="17" r="1.5" fill="#ffffff"/>
+    </g>
+    <!-- Token White Bishop -->
+    <g id="token-wb">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-white)" stroke="#3b82f6" stroke-width="2.5"/>
+      <circle cx="22.5" cy="13" r="2.5" fill="#1e3a8a"/>
+      <path d="M 15 32 L 30 32 C 30 25, 27 17, 22.5 17 C 18 17, 15 25, 15 32 Z" fill="#1e3a8a"/>
+      <line x1="20" y1="21" x2="25" y2="26" stroke="#ffffff" stroke-width="1.8"/>
+    </g>
+    <!-- Token White Rook -->
+    <g id="token-wr">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-white)" stroke="#3b82f6" stroke-width="2.5"/>
+      <path d="M 15 32 L 30 32 L 28 20 L 31 16 L 31 13 L 28 13 L 28 16 L 24 16 L 24 13 L 21 13 L 21 16 L 17 16 L 17 13 L 14 13 L 14 16 L 17 20 Z" fill="#1e3a8a"/>
+    </g>
+    <!-- Token White Queen -->
+    <g id="token-wq">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-white)" stroke="#3b82f6" stroke-width="2.5"/>
+      <circle cx="14" cy="15" r="1.5" fill="#3b82f6"/>
+      <circle cx="18" cy="13" r="1.5" fill="#3b82f6"/>
+      <circle cx="22.5" cy="12" r="1.8" fill="#3b82f6"/>
+      <circle cx="27" cy="13" r="1.5" fill="#3b82f6"/>
+      <circle cx="31" cy="15" r="1.5" fill="#3b82f6"/>
+      <path d="M 14 17 L 31 17 L 29 27 L 31 32 L 14 32 L 16 27 Z" fill="#1e3a8a"/>
+    </g>
+    <!-- Token White King -->
+    <g id="token-wk">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-white)" stroke="#3b82f6" stroke-width="2.5"/>
+      <path d="M 22.5 10 L 22.5 15 M 20 12.5 L 25 12.5" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 14 32 L 31 32 C 30 24, 27 17, 22.5 17 C 18 17, 15 24, 14 32 Z" fill="#1e3a8a"/>
+      <circle cx="22.5" cy="23" r="2.5" fill="#60a5fa"/>
+    </g>
+
+    <!-- Token Black Pawn -->
+    <g id="token-bp">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-black)" stroke="#06b6d4" stroke-width="2.5"/>
+      <circle cx="22.5" cy="18" r="4.5" fill="#22d3ee"/>
+      <path d="M 16 31 C 16 23, 29 23, 29 31 Z" fill="#22d3ee"/>
+      <rect x="14" y="30" width="17" height="3" rx="1.5" fill="#22d3ee"/>
+    </g>
+    <!-- Token Black Knight -->
+    <g id="token-bn">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-black)" stroke="#06b6d4" stroke-width="2.5"/>
+      <path d="M 16 32 L 29 32 L 29 26 C 29 21, 28 14, 21 13 C 18 13, 14 15, 14 18 C 14 20, 17 21, 19 21 C 15 22, 13 25, 16 29 Z" fill="#22d3ee"/>
+      <circle cx="22" cy="17" r="1.5" fill="#0e1014"/>
+    </g>
+    <!-- Token Black Bishop -->
+    <g id="token-bb">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-black)" stroke="#06b6d4" stroke-width="2.5"/>
+      <circle cx="22.5" cy="13" r="2.5" fill="#22d3ee"/>
+      <path d="M 15 32 L 30 32 C 30 25, 27 17, 22.5 17 C 18 17, 15 25, 15 32 Z" fill="#22d3ee"/>
+      <line x1="20" y1="21" x2="25" y2="26" stroke="#0e1014" stroke-width="1.8"/>
+    </g>
+    <!-- Token Black Rook -->
+    <g id="token-br">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-black)" stroke="#06b6d4" stroke-width="2.5"/>
+      <path d="M 15 32 L 30 32 L 28 20 L 31 16 L 31 13 L 28 13 L 28 16 L 24 16 L 24 13 L 21 13 L 21 16 L 17 16 L 17 13 L 14 13 L 14 16 L 17 20 Z" fill="#22d3ee"/>
+    </g>
+    <!-- Token Black Queen -->
+    <g id="token-bq">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-black)" stroke="#06b6d4" stroke-width="2.5"/>
+      <circle cx="14" cy="15" r="1.5" fill="#a5f3fc"/>
+      <circle cx="18" cy="13" r="1.5" fill="#a5f3fc"/>
+      <circle cx="22.5" cy="12" r="1.8" fill="#a5f3fc"/>
+      <circle cx="27" cy="13" r="1.5" fill="#a5f3fc"/>
+      <circle cx="31" cy="15" r="1.5" fill="#a5f3fc"/>
+      <path d="M 14 17 L 31 17 L 29 27 L 31 32 L 14 32 L 16 27 Z" fill="#22d3ee"/>
+    </g>
+    <!-- Token Black King -->
+    <g id="token-bk">
+      <polygon points="22.5,4 39,13.5 39,31.5 22.5,41 6,31.5 6,13.5" fill="url(#grad-token-black)" stroke="#06b6d4" stroke-width="2.5"/>
+      <path d="M 22.5 10 L 22.5 15 M 20 12.5 L 25 12.5" stroke="#a5f3fc" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 14 32 L 31 32 C 30 24, 27 17, 22.5 17 C 18 17, 15 24, 14 32 Z" fill="#22d3ee"/>
+      <circle cx="22.5" cy="23" r="2.5" fill="#0e1014"/>
+    </g>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- 4. WOODCRAFT TOKENS (Natural Rustic Woodgrain Medallions)       -->
+    <!-- ------------------------------------------------------------- -->
+    <radialGradient id="grad-wood-white" cx="40%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#faedd9"/>
+      <stop offset="60%" stop-color="#edd2b1"/>
+      <stop offset="100%" stop-color="#caa27b"/>
+    </radialGradient>
+    <radialGradient id="grad-wood-black" cx="35%" cy="30%" r="65%">
+      <stop offset="0%" stop-color="#543b27"/>
+      <stop offset="60%" stop-color="#362214"/>
+      <stop offset="100%" stop-color="#1f1107"/>
+    </radialGradient>
+
+    <!-- Wood White Pawn -->
+    <g id="wood-wp">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-white)" stroke="#784f2b" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#ab7f55" stroke-width="1"/>
+      <circle cx="22.5" cy="16" r="4.5" fill="#523218"/>
+      <path d="M 16 31 C 16 23, 29 23, 29 31 Z" fill="#523218"/>
+      <rect x="14" y="30" width="17" height="3" rx="1.5" fill="#523218"/>
+    </g>
+    <!-- Wood White Knight -->
+    <g id="wood-wn">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-white)" stroke="#784f2b" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#ab7f55" stroke-width="1"/>
+      <path d="M 16 32 L 29 32 L 29 26 C 29 21, 28 14, 21 13 C 18 13, 14 15, 14 18 C 14 20, 17 21, 19 21 C 15 22, 13 25, 16 29 Z" fill="#523218"/>
+      <circle cx="22" cy="17" r="1.5" fill="#edd2b1"/>
+    </g>
+    <!-- Wood White Bishop -->
+    <g id="wood-wb">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-white)" stroke="#784f2b" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#ab7f55" stroke-width="1"/>
+      <circle cx="22.5" cy="12" r="2.5" fill="#523218"/>
+      <path d="M 15 32 L 30 32 C 30 25, 27 16, 22.5 16 C 18 16, 15 25, 15 32 Z" fill="#523218"/>
+      <line x1="20" y1="20" x2="25" y2="25" stroke="#edd2b1" stroke-width="1.8"/>
+    </g>
+    <!-- Wood White Rook -->
+    <g id="wood-wr">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-white)" stroke="#784f2b" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#ab7f55" stroke-width="1"/>
+      <path d="M 15 32 L 30 32 L 28 20 L 31 16 L 31 13 L 28 13 L 28 16 L 24 16 L 24 13 L 21 13 L 21 16 L 17 16 L 17 13 L 14 13 L 14 16 L 17 20 Z" fill="#523218"/>
+    </g>
+    <!-- Wood White Queen -->
+    <g id="wood-wq">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-white)" stroke="#784f2b" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#ab7f55" stroke-width="1"/>
+      <circle cx="14" cy="15" r="1.5" fill="#784f2b"/>
+      <circle cx="18" cy="13" r="1.5" fill="#784f2b"/>
+      <circle cx="22.5" cy="12" r="1.8" fill="#784f2b"/>
+      <circle cx="27" cy="13" r="1.5" fill="#784f2b"/>
+      <circle cx="31" cy="15" r="1.5" fill="#784f2b"/>
+      <path d="M 14 17 L 31 17 L 29 27 L 31 32 L 14 32 L 16 27 Z" fill="#523218"/>
+    </g>
+    <!-- Wood White King -->
+    <g id="wood-wk">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-white)" stroke="#784f2b" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#ab7f55" stroke-width="1"/>
+      <path d="M 22.5 11 L 22.5 16 M 20 13.5 L 25 13.5" stroke="#784f2b" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 14 32 L 31 32 C 30 24, 27 18, 22.5 18 C 18 18, 15 24, 14 32 Z" fill="#523218"/>
+      <circle cx="22.5" cy="24" r="2.5" fill="#d97706"/>
+    </g>
+
+    <!-- Wood Black Pawn -->
+    <g id="wood-bp">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-black)" stroke="#a16207" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#543b27" stroke-width="1"/>
+      <circle cx="22.5" cy="16" r="4.5" fill="#fde68a"/>
+      <path d="M 16 31 C 16 23, 29 23, 29 31 Z" fill="#fde68a"/>
+      <rect x="14" y="30" width="17" height="3" rx="1.5" fill="#fde68a"/>
+    </g>
+    <!-- Wood Black Knight -->
+    <g id="wood-bn">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-black)" stroke="#a16207" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#543b27" stroke-width="1"/>
+      <path d="M 16 32 L 29 32 L 29 26 C 29 21, 28 14, 21 13 C 18 13, 14 15, 14 18 C 14 20, 17 21, 19 21 C 15 22, 13 25, 16 29 Z" fill="#fde68a"/>
+      <circle cx="22" cy="17" r="1.5" fill="#241407"/>
+    </g>
+    <!-- Wood Black Bishop -->
+    <g id="wood-bb">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-black)" stroke="#a16207" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#543b27" stroke-width="1"/>
+      <circle cx="22.5" cy="12" r="2.5" fill="#fde68a"/>
+      <path d="M 15 32 L 30 32 C 30 25, 27 16, 22.5 16 C 18 16, 15 25, 15 32 Z" fill="#fde68a"/>
+      <line x1="20" y1="20" x2="25" y2="25" stroke="#241407" stroke-width="1.8"/>
+    </g>
+    <!-- Wood Black Rook -->
+    <g id="wood-br">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-black)" stroke="#a16207" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#543b27" stroke-width="1"/>
+      <path d="M 15 32 L 30 32 L 28 20 L 31 16 L 31 13 L 28 13 L 28 16 L 24 16 L 24 13 L 21 13 L 21 16 L 17 16 L 17 13 L 14 13 L 14 16 L 17 20 Z" fill="#fde68a"/>
+    </g>
+    <!-- Wood Black Queen -->
+    <g id="wood-bq">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-black)" stroke="#a16207" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#543b27" stroke-width="1"/>
+      <circle cx="14" cy="15" r="1.5" fill="#fbbf24"/>
+      <circle cx="18" cy="13" r="1.5" fill="#fbbf24"/>
+      <circle cx="22.5" cy="12" r="1.8" fill="#fbbf24"/>
+      <circle cx="27" cy="13" r="1.5" fill="#fbbf24"/>
+      <circle cx="31" cy="15" r="1.5" fill="#fbbf24"/>
+      <path d="M 14 17 L 31 17 L 29 27 L 31 32 L 14 32 L 16 27 Z" fill="#fde68a"/>
+    </g>
+    <!-- Wood Black King -->
+    <g id="wood-bk">
+      <circle cx="22.5" cy="22.5" r="19" fill="url(#grad-wood-black)" stroke="#a16207" stroke-width="2.5"/>
+      <circle cx="22.5" cy="22.5" r="16.5" fill="none" stroke="#543b27" stroke-width="1"/>
+      <path d="M 22.5 11 L 22.5 16 M 20 13.5 L 25 13.5" stroke="#fbbf24" stroke-width="2" stroke-linecap="round"/>
+      <path d="M 14 32 L 31 32 C 30 24, 27 18, 22.5 18 C 18 18, 15 24, 14 32 Z" fill="#fde68a"/>
+      <circle cx="22.5" cy="24" r="2.5" fill="#241407"/>
+    </g>
   </defs>
 </svg>
 
 <div class="app-layout" id="app">
 
   <!-- ================================================================== -->
-  <!-- Top Navigation Header (Universal Top Bar Contract)                 -->
+  <!-- Top Navigation Header (3-Zone Header Contract)                     -->
   <!-- ================================================================== -->
   <header class="app-header">
     <div class="brand-zone">
@@ -116,16 +457,56 @@
     <nav class="nav-zone">
       <button type="button" class="nav-link is-active" id="nav-btn-computer">Play Computer</button>
       <button type="button" class="nav-link" id="nav-btn-friend">Play Online Friend</button>
+      <button type="button" class="nav-link" id="nav-btn-friends-modal">Friends & Social</button>
     </nav>
 
     <div class="action-zone">
+      <!-- Piece Shape / Coin Selector Dropdown -->
+      <div class="piece-shape-picker" title="Coin & Pawn Shape">
+        <select id="select-piece-style" class="header-select" aria-label="Piece Shape">
+          <option value="staunton">♟️ Staunton Classic</option>
+          <option value="coins">🪙 Gold & Silver Coins</option>
+          <option value="tokens">💠 Modern Gem Tokens</option>
+          <option value="wood">🪵 Woodcraft Tokens</option>
+        </select>
+      </div>
+
       <!-- Theme Switcher Pill -->
       <div class="theme-picker" id="header-theme-picker" title="Board Theme">
         <button type="button" class="theme-swatch is-active" data-theme="tournament" title="Tournament Green"></button>
         <button type="button" class="theme-swatch" data-theme="ember" title="Walnut Wood"></button>
         <button type="button" class="theme-swatch" data-theme="slate" title="Modern Slate"></button>
         <button type="button" class="theme-swatch" data-theme="obsidian" title="Obsidian Dark"></button>
+        <button type="button" class="theme-swatch" data-theme="emerald" title="Emerald Velvet"></button>
+        <button type="button" class="theme-swatch" data-theme="sakura" title="Cherry Blossom"></button>
+        <button type="button" class="theme-swatch" data-theme="cyber" title="Cyberpunk Neon"></button>
       </div>
+
+      <!-- Notification Bell with Counter Badge -->
+      <div class="notif-wrapper">
+        <button type="button" class="action-btn notif-btn" id="btn-notifications" title="Notifications" aria-label="Notifications">
+          <span class="notif-icon">🔔</span>
+          <span class="notif-badge" id="notif-badge">1</span>
+        </button>
+
+        <!-- Dropdown Notifications Menu -->
+        <div class="notifications-dropdown" id="notifications-dropdown" hidden>
+          <div class="notif-head">
+            <span class="notif-head-title">Notifications</span>
+            <span class="notif-head-count" id="notif-head-count">1 pending</span>
+          </div>
+          <div class="notif-list" id="notif-list">
+            <!-- Dynamic notifications injected here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- User Auth & Verification Profile Button -->
+      <button type="button" class="auth-pill-btn" id="btn-user-auth" title="Account & Verification">
+        <span class="user-avatar-icon" id="user-avatar-tag">👤</span>
+        <span class="user-name-label" id="user-name-tag">Sign In</span>
+        <span class="user-verified-badge" id="user-verified-badge" title="Verified Account" hidden>✓</span>
+      </button>
 
       <!-- Sound Toggle -->
       <button type="button" class="action-btn" id="btn-sound-toggle" title="Toggle Sound" aria-label="Toggle Sound">
@@ -148,24 +529,24 @@
         <div class="hero-badge">
           <span>Real-time Multiplayer</span>
           <span aria-hidden="true">&middot;</span>
-          <span>Adaptive AI Bots</span>
+          <span>4-Sec Strategic AI</span>
           <span aria-hidden="true">&middot;</span>
           <span>Zero-Lag Engine</span>
         </div>
         <h1 class="hero-title">Experience Pure Chess</h1>
         <p class="hero-subtitle">
-          Challenge tactical chess bots or create a private room to battle online friends in real-time.
+          Challenge tactical chess bots or connect with friends in real-time rooms with custom coins, themes, and instant chat.
         </p>
       </div>
 
       <div class="lobby-grid">
-        <!-- ----------------------- Card: Play vs Computer ----------------- -->
+        <!-- Card: Play vs Computer -->
         <section class="game-mode-card card-computer">
           <div class="mode-card-head">
             <div class="mode-icon-circle"><svg viewBox="0 0 45 45"><use href="#piece-wq"/></svg></div>
             <div>
               <h2 class="mode-title">Play with Computer</h2>
-              <p class="mode-desc">Select bot strength, pick your colour, and make your move.</p>
+              <p class="mode-desc">Balanced 4-second strategic thinking bot at all skill levels.</p>
             </div>
           </div>
 
@@ -176,24 +557,23 @@
 
           <div class="form-group">
             <div class="label-heading">
-              <span class="form-label">Opponent Difficulty</span>
+              <span class="form-label">Opponent Difficulty (4-Sec Pacing)</span>
             </div>
             <div class="level-selector" id="level-selector" role="radiogroup" aria-label="Bot Strength">
-              <!-- Dynamically populated or default levels -->
               <button type="button" class="level-card" data-level="simple" role="radio" aria-checked="false">
                 <span class="level-title">Beginner</span>
                 <span class="level-rating">Rating 800</span>
-                <span class="level-tag">Fun & Casual</span>
+                <span class="level-tag">Casual ~4s</span>
               </button>
               <button type="button" class="level-card is-active" data-level="medium" role="radio" aria-checked="true">
                 <span class="level-title">Intermediate</span>
                 <span class="level-rating">Rating 1400</span>
-                <span class="level-tag">Solid Tactics</span>
+                <span class="level-tag">Tactical ~4s</span>
               </button>
               <button type="button" class="level-card" data-level="hard" role="radio" aria-checked="false">
                 <span class="level-title">Master</span>
                 <span class="level-rating">Rating 2000</span>
-                <span class="level-tag">Deep Search</span>
+                <span class="level-tag">Deep ~4s</span>
               </button>
             </div>
           </div>
@@ -240,13 +620,13 @@
           </button>
         </section>
 
-        <!-- ----------------------- Card: Play with Friend ----------------- -->
+        <!-- Card: Play with Friend -->
         <section class="game-mode-card card-friend">
           <div class="mode-card-head">
             <div class="mode-icon-circle mode-icon-circle--alt"><svg viewBox="0 0 45 45"><use href="#piece-wk"/></svg></div>
             <div>
               <h2 class="mode-title">Play Online Friend</h2>
-              <p class="mode-desc">Connect phone, tablet, or another PC with QR or invite link.</p>
+              <p class="mode-desc">Live multiplayer with room codes, invites, and in-game messages.</p>
             </div>
           </div>
 
@@ -266,17 +646,17 @@
 
           <div class="friend-action-box">
             <h3 class="action-box-title">Create Match & Connect</h3>
-            <p class="action-box-desc">Get instant QR code & link to play across any device.</p>
+            <p class="action-box-desc">Get instant QR code & shareable link for mobile, tablet, or desktop.</p>
             <button type="button" class="btn btn-accent btn-block" id="btn-host-room">
-              <span>📱 Host & Connect Device</span>
+              <span>📱 Host Room & Invite Friend</span>
             </button>
           </div>
 
-          <div class="or-separator"><span>OR JOIN CODE</span></div>
+          <div class="or-separator"><span>OR ENTER 4-DIGIT PIN</span></div>
 
           <div class="friend-action-box">
-            <h3 class="action-box-title">Enter Room Code</h3>
-            <p class="action-box-desc">Got an invite? Enter the 4-digit code below.</p>
+            <h3 class="action-box-title">Join Room Code</h3>
+            <p class="action-box-desc">Enter the 4-digit code provided by your friend.</p>
             <div class="code-entry-row">
               <input type="text" id="input-room-code" class="code-input" maxlength="4" inputmode="numeric" placeholder="0000" autocomplete="off">
               <button type="button" class="btn btn-secondary" id="btn-join-room">Join</button>
@@ -285,7 +665,7 @@
 
           <div class="friend-quick-tip">
             <span class="tip-dot"></span>
-            <span>Friends can join instantly via mobile browser, laptop, or desktop without logging in.</span>
+            <span>Friends can challenge each other directly from the top Friends & Social tab!</span>
           </div>
         </section>
       </div>
@@ -293,13 +673,13 @@
   </main>
 
   <!-- ================================================================== -->
-  <!-- 2. Active Match View                                               -->
+  <!-- 2. Active Match View (Board on Left/Center, Chat & Moves on Right) -->
   <!-- ================================================================== -->
   <main class="screen screen--game" id="screen-game" hidden>
-    <div class="game-arena">
+    <div class="game-arena" id="game-arena">
 
-      <!-- Left Column: The Chessboard & Player HUDs -->
-      <div class="board-column">
+      <!-- LEFT / CENTER: The Chessboard & Player HUDs -->
+      <div class="board-column" id="board-column">
 
         <!-- Top Player HUD (Opponent / Bot) -->
         <div class="player-hud hud-opponent" id="hud-opponent">
@@ -321,6 +701,17 @@
           <!-- Digital Clock -->
           <div class="player-clock" id="opp-clock">10:00</div>
           <div class="turn-halo" id="opp-turn-halo" hidden></div>
+        </div>
+
+        <!-- King In Danger Alert Banner (Active when King is checked) -->
+        <div class="king-danger-banner" id="king-danger-banner" hidden>
+          <div class="danger-banner-content">
+            <span class="danger-icon">⚠️</span>
+            <div class="danger-text-block">
+              <strong>KING IN CHECK!</strong>
+              <span>Your King is in danger. Only legal moves that escape or resolve check are permitted!</span>
+            </div>
+          </div>
         </div>
 
         <!-- Center: Board + Evaluation Bar Wrapper -->
@@ -382,8 +773,20 @@
 
       </div>
 
-      <!-- Right Column: Interactive Side Panel -->
-      <aside class="sidebar-column">
+      <!-- RIGHT SIDEBAR: Move Notation & Chat -->
+      <aside class="sidebar-column" id="sidebar-column">
+
+        <!-- Sidebar Tab Navigation (Moves & Chat) -->
+        <div class="sidebar-tabs">
+          <button type="button" class="tab-btn is-active" id="tab-btn-moves">
+            <span>📖 Move Notation</span>
+          </button>
+          <button type="button" class="tab-btn" id="tab-btn-chat">
+            <span>💬 Live Chat</span>
+            <span class="chat-unread-dot" id="chat-unread-dot" hidden></span>
+          </button>
+        </div>
+
         <!-- Room Invite Bar (Multiplayer only) -->
         <div class="room-invite-panel" id="room-invite-panel" hidden>
           <div class="room-invite-head">
@@ -398,7 +801,7 @@
           </div>
           <div class="room-btn-group">
             <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-link">
-              <span>Copy Invite Link</span>
+              <span>Copy Link</span>
             </button>
             <button type="button" class="btn btn-quiet btn-sm" id="btn-copy-code">
               <span>Copy Code</span>
@@ -406,92 +809,111 @@
           </div>
         </div>
 
-        <!-- Interactive Quick Reactions Dock (Multiplayer) -->
-        <div class="reactions-dock" id="reactions-dock">
-          <span class="dock-label">React:</span>
-          <div class="emoji-bar">
-            <button type="button" class="emoji-btn" data-emoji="👏" title="Applause">👏</button>
-            <button type="button" class="emoji-btn" data-emoji="🔥" title="Fire Move">🔥</button>
-            <button type="button" class="emoji-btn" data-emoji="👑" title="King">👑</button>
-            <button type="button" class="emoji-btn" data-emoji="🤝" title="Good Game">🤝</button>
-            <button type="button" class="emoji-btn" data-emoji="😮" title="Surprise">😮</button>
-            <button type="button" class="emoji-btn" data-emoji="🎯" title="Great Accuracy">🎯</button>
+        <!-- TAB 1: Move Notation Panel -->
+        <div class="tab-pane is-active" id="pane-moves">
+          <div class="notation-panel">
+            <div class="opening-name-banner" id="opening-name-banner">
+              <span class="opening-icon">📖</span>
+              <span class="opening-text" id="opening-name">Standard Opening</span>
+            </div>
+            <div class="notation-header">
+              <span class="notation-title">Move Notation (PGN)</span>
+              <span class="move-ply-counter" id="move-ply-counter">0 moves</span>
+            </div>
+
+            <div class="notation-scroll" id="notation-scroll">
+              <table class="notation-table" id="notation-table">
+                <thead>
+                  <tr>
+                    <th class="th-num">#</th>
+                    <th>White</th>
+                    <th>Black</th>
+                  </tr>
+                </thead>
+                <tbody id="notation-tbody">
+                  <!-- Move rows dynamically generated -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Move History Review Stepper -->
+            <div class="notation-controls">
+              <button type="button" class="stepper-btn" id="btn-step-start" title="First Move">&#171;</button>
+              <button type="button" class="stepper-btn" id="btn-step-prev" title="Previous Move">&#8249;</button>
+              <button type="button" class="stepper-btn" id="btn-step-next" title="Next Move">&#8250;</button>
+              <button type="button" class="stepper-btn" id="btn-step-end" title="Latest Move">&#187;</button>
+            </div>
+          </div>
+
+          <!-- Quick Move Action Controls -->
+          <div class="game-actions-card">
+            <div class="action-grid">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-action-undo" title="Takeback previous move (Vs Computer)">
+                <span>↩️ Undo</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-action-hint" title="Show engine best move hint">
+                <span>💡 Hint</span>
+              </button>
+            </div>
+            <div class="action-grid">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-flip-board" title="Flip Board Perspective">
+                <span>&#8646; Flip Board</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-connect-phone-game" title="Connect Phone or Another PC">
+                <span>📱 Connect Phone</span>
+              </button>
+            </div>
+            <div class="action-grid">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-pgn" title="Copy PGN notation">
+                <span>Copy PGN</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-fen" title="Copy FEN string">
+                <span>Copy FEN</span>
+              </button>
+            </div>
+            <div class="action-grid">
+              <button type="button" class="btn btn-accent btn-sm" id="btn-action-rematch" hidden>
+                <span>Rematch</span>
+              </button>
+              <button type="button" class="btn btn-danger-outline btn-sm" id="btn-action-resign">
+                <span>Resign</span>
+              </button>
+            </div>
+            <button type="button" class="btn btn-quiet btn-block btn-sm" id="btn-action-menu">
+              <span>&larr; Return to Menu</span>
+            </button>
           </div>
         </div>
 
-        <!-- Move History Table -->
-        <div class="notation-panel">
-          <div class="opening-name-banner" id="opening-name-banner">
-            <span class="opening-icon">📖</span>
-            <span class="opening-text" id="opening-name">Standard Opening</span>
-          </div>
-          <div class="notation-header">
-            <span class="notation-title">Move Notation</span>
-            <span class="move-ply-counter" id="move-ply-counter">0 moves</span>
-          </div>
+        <!-- TAB 2: Live In-Game Chat & Messages -->
+        <div class="tab-pane" id="pane-chat" hidden>
+          <div class="chat-container">
+            <div class="chat-messages-scroll" id="chat-messages-scroll">
+              <div class="chat-welcome-msg">
+                <span>💬 Game Chat: Send greetings, tactics commentary, and reactions!</span>
+              </div>
+            </div>
 
-          <div class="notation-scroll" id="notation-scroll">
-            <table class="notation-table" id="notation-table">
-              <thead>
-                <tr>
-                  <th class="th-num">#</th>
-                  <th>White</th>
-                  <th>Black</th>
-                </tr>
-              </thead>
-              <tbody id="notation-tbody">
-                <!-- Move rows dynamically generated -->
-              </tbody>
-            </table>
-          </div>
+            <!-- Quick Emoji & Reaction Dock -->
+            <div class="reactions-dock" id="reactions-dock">
+              <div class="emoji-bar">
+                <button type="button" class="emoji-btn" data-emoji="👏" title="Applause">👏</button>
+                <button type="button" class="emoji-btn" data-emoji="🔥" title="Fire Move">🔥</button>
+                <button type="button" class="emoji-btn" data-emoji="👑" title="King Attack">👑</button>
+                <button type="button" class="emoji-btn" data-emoji="🤝" title="Good Game">🤝</button>
+                <button type="button" class="emoji-btn" data-emoji="😮" title="Surprise">😮</button>
+                <button type="button" class="emoji-btn" data-emoji="⚡" title="Fast Play">⚡</button>
+              </div>
+            </div>
 
-          <!-- Move History Review Stepper -->
-          <div class="notation-controls">
-            <button type="button" class="stepper-btn" id="btn-step-start" title="First Move">&#171;</button>
-            <button type="button" class="stepper-btn" id="btn-step-prev" title="Previous Move">&#8249;</button>
-            <button type="button" class="stepper-btn" id="btn-step-next" title="Next Move">&#8250;</button>
-            <button type="button" class="stepper-btn" id="btn-step-end" title="Latest Move">&#187;</button>
+            <!-- Text Message Input Box -->
+            <form class="chat-input-row" id="form-chat">
+              <input type="text" id="input-chat-text" class="chat-text-input" placeholder="Type a message to your friend..." maxlength="150" autocomplete="off">
+              <button type="submit" class="btn btn-primary btn-sm" id="btn-chat-send">Send</button>
+            </form>
           </div>
         </div>
 
-        <!-- Action Controls -->
-        <div class="game-actions-card">
-          <div class="action-grid">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-action-undo" title="Takeback previous move (Vs Computer)">
-              <span>↩️ Undo</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-action-hint" title="Show engine best move hint">
-              <span>💡 Hint</span>
-            </button>
-          </div>
-          <div class="action-grid">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-flip-board" title="Flip Board Perspective">
-              <span>&#8646; Flip Board</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-connect-phone-game" title="Connect Phone or Another PC">
-              <span>📱 Connect Phone</span>
-            </button>
-          </div>
-          <div class="action-grid">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-pgn" title="Copy PGN notation">
-              <span>Copy PGN</span>
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-fen" title="Copy FEN string">
-              <span>Copy FEN</span>
-            </button>
-          </div>
-          <div class="action-grid">
-            <button type="button" class="btn btn-accent btn-sm" id="btn-action-rematch" hidden>
-              <span>Rematch</span>
-            </button>
-            <button type="button" class="btn btn-danger-outline btn-sm" id="btn-action-resign">
-              <span>Resign</span>
-            </button>
-          </div>
-          <button type="button" class="btn btn-quiet btn-block btn-sm" id="btn-action-menu">
-            <span>&larr; Return to Menu</span>
-          </button>
-        </div>
       </aside>
 
     </div>
@@ -500,6 +922,195 @@
   <!-- ================================================================== -->
   <!-- 3. Overlays & Dialogs                                              -->
   <!-- ================================================================== -->
+
+  <!-- Account Login & Email Verification Modal -->
+  <div class="modal-backdrop" id="modal-auth" hidden>
+    <div class="modal-card auth-modal-card">
+      <div class="auth-modal-header">
+        <div>
+          <h2 class="auth-modal-title" id="auth-modal-title">Account & Verification</h2>
+          <p class="auth-modal-desc">Sign in or create an account with proper email verification code.</p>
+        </div>
+        <button type="button" class="icon-close-btn" id="btn-close-auth" aria-label="Close">&times;</button>
+      </div>
+
+      <!-- Auth Tabs: Sign In / Create Account -->
+      <div class="auth-tabs" id="auth-tabs-bar">
+        <button type="button" class="auth-tab-btn is-active" id="tab-auth-signin">Sign In</button>
+        <button type="button" class="auth-tab-btn" id="tab-auth-register">Create Account</button>
+      </div>
+
+      <!-- VIEW 1: Sign In -->
+      <form class="auth-form" id="form-signin">
+        <div class="form-group">
+          <label class="form-label" for="signin-username">Username or Email</label>
+          <input type="text" id="signin-username" class="text-input" placeholder="e.g. your_username or email" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signin-password">Password</label>
+          <input type="password" id="signin-password" class="text-input" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block btn-lg" id="btn-submit-signin">
+          <span>Sign In to Arena</span>
+        </button>
+      </form>
+
+      <!-- VIEW 2: Create Account -->
+      <form class="auth-form" id="form-register" hidden>
+        <div class="form-group">
+          <label class="form-label" for="reg-username">Username (3-20 characters)</label>
+          <input type="text" id="reg-username" class="text-input" placeholder="e.g. ChessMaster99" maxlength="20" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-email">Email Address</label>
+          <input type="email" id="reg-email" class="text-input" placeholder="you@domain.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-password">Password</label>
+          <input type="password" id="reg-password" class="text-input" placeholder="Min 4 characters" minlength="4" required>
+        </div>
+        <button type="submit" class="btn btn-accent btn-block btn-lg" id="btn-submit-register">
+          <span>Send Verification Code &rarr;</span>
+        </button>
+      </form>
+
+      <!-- VIEW 3: 6-Digit Email Verification Step -->
+      <div class="auth-verify-step" id="view-verify-step" hidden>
+        <div class="verify-badge-icon">📬</div>
+        <h3 class="verify-title">Verify Your Account</h3>
+        <p class="verify-desc" id="verify-email-text">
+          We sent a 6-digit verification code to your email. Enter the code below to activate your account.
+        </p>
+
+        <!-- Convenient test code alert box -->
+        <div class="verify-code-pill" id="verify-code-display-box">
+          <span>Your Verification Code is: <strong id="verify-generated-code">------</strong></span>
+        </div>
+
+        <div class="code-boxes-row" id="code-boxes-container">
+          <input type="text" class="digit-box" maxlength="1" inputmode="numeric" data-idx="0" autocomplete="off">
+          <input type="text" class="digit-box" maxlength="1" inputmode="numeric" data-idx="1" autocomplete="off">
+          <input type="text" class="digit-box" maxlength="1" inputmode="numeric" data-idx="2" autocomplete="off">
+          <input type="text" class="digit-box" maxlength="1" inputmode="numeric" data-idx="3" autocomplete="off">
+          <input type="text" class="digit-box" maxlength="1" inputmode="numeric" data-idx="4" autocomplete="off">
+          <input type="text" class="digit-box" maxlength="1" inputmode="numeric" data-idx="5" autocomplete="off">
+        </div>
+
+        <button type="button" class="btn btn-primary btn-block btn-lg" id="btn-submit-code">
+          <span>Verify & Activate Account ✓</span>
+        </button>
+
+        <div class="verify-resend-row">
+          <button type="button" class="btn btn-quiet btn-sm" id="btn-resend-code">Resend Code</button>
+          <button type="button" class="btn btn-quiet btn-sm" id="btn-back-to-auth">Back</button>
+        </div>
+      </div>
+
+      <!-- VIEW 4: Logged In Profile View -->
+      <div class="auth-profile-view" id="view-profile" hidden>
+        <div class="profile-card-inner">
+          <div class="profile-avatar-large" id="profile-avatar-display">🦁</div>
+          <div class="profile-details">
+            <div class="profile-name-line">
+              <h3 class="profile-username" id="profile-username-display">Username</h3>
+              <span class="profile-verified-badge" title="Verified Account">✓ Verified</span>
+            </div>
+            <p class="profile-email" id="profile-email-display">user@domain.com</p>
+            <div class="profile-stats-grid">
+              <div class="stat-box">
+                <span class="stat-num" id="profile-rating-display">1200</span>
+                <span class="stat-lbl">Rating</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-num" id="profile-wins-display">0</span>
+                <span class="stat-lbl">Wins</span>
+              </div>
+              <div class="stat-box">
+                <span class="stat-num" id="profile-losses-display">0</span>
+                <span class="stat-lbl">Losses</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-danger-outline btn-block" id="btn-logout-auth">Sign Out</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Friends & Challenge Modal -->
+  <div class="modal-backdrop" id="modal-friends" hidden>
+    <div class="modal-card modal-friends-card">
+      <div class="connect-modal-header">
+        <div>
+          <h2 class="connect-modal-title">Friends & Social</h2>
+          <p class="connect-modal-desc">Challenge friends, send requests, and play real-time matches.</p>
+        </div>
+        <button type="button" class="icon-close-btn" id="btn-close-friends" aria-label="Close">&times;</button>
+      </div>
+
+      <div class="add-friend-box">
+        <label class="form-label" for="input-add-friend">Send Friend Request</label>
+        <div class="add-friend-input-row">
+          <input type="text" id="input-add-friend" class="text-input" placeholder="Enter friend username...">
+          <button type="button" class="btn btn-primary" id="btn-send-friend-req">Add Friend</button>
+        </div>
+      </div>
+
+      <div class="friends-list-header">
+        <span class="friends-list-title">Your Friends</span>
+        <span class="friends-count" id="friends-count-label">3 Online</span>
+      </div>
+
+      <div class="friends-items-list" id="friends-items-list">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Modal (Cheering for Winners, Grandmaster Motivation for Losers) -->
+  <div class="modal-backdrop" id="modal-gameover" hidden>
+    <div class="modal-card modal-gameover-card">
+
+      <!-- Confetti Shower Container -->
+      <div class="confetti-wrapper" id="confetti-canvas-container"></div>
+
+      <!-- Crown & Trophy Icon -->
+      <div class="modal-icon-crown" id="gameover-crown">🏆</div>
+
+      <!-- Main Headline -->
+      <h2 class="modal-heading" id="gameover-title">Checkmate!</h2>
+      <p class="modal-description" id="gameover-detail">You won the game.</p>
+
+      <!-- CHEERING CONTAINER (Displays when player WINS) -->
+      <div class="gameover-cheer-panel" id="gameover-cheer-panel">
+        <div class="cheer-banner">🎉 SPECTACULAR VICTORY! 🌟</div>
+        <p class="cheer-message-text" id="gameover-cheer-text">
+          Brilliant tactics! You commanded the board and crushed your opponent with grandmaster precision! The crowd roars for the champion! 👑
+        </p>
+      </div>
+
+      <!-- MOTIVATION CONTAINER (Displays when player LOSES) -->
+      <div class="gameover-motivation-panel" id="gameover-motivation-panel" hidden>
+        <div class="motivation-badge">💪 CHAMPION'S MOTIVATION</div>
+        <blockquote class="motivation-quote" id="gameover-motivation-quote">
+          "Every chess master was once a beginner. Failure is simply the opportunity to begin again, this time more intelligently." — Bobby Fischer
+        </blockquote>
+        <p class="motivation-footer-tip">
+          Review your moves on the left panel to identify key turning points and conquer your next match!
+        </p>
+      </div>
+
+      <div class="modal-btn-row">
+        <button type="button" class="btn btn-primary btn-block" id="btn-modal-rematch">
+          <span>Rematch Now</span>
+        </button>
+        <button type="button" class="btn btn-secondary btn-block" id="btn-modal-menu">
+          <span>Main Menu</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Connect Phone & Cross-Device Modal -->
   <div class="modal-backdrop" id="modal-device-connect" hidden>
@@ -559,24 +1170,6 @@
     </div>
   </div>
 
-  <!-- Game Over Modal -->
-  <div class="modal-backdrop" id="modal-gameover" hidden>
-    <div class="modal-card modal-gameover-card">
-      <div class="modal-icon-crown" id="gameover-crown">🏆</div>
-      <h2 class="modal-heading" id="gameover-title">Checkmate!</h2>
-      <p class="modal-description" id="gameover-detail">You won the game.</p>
-
-      <div class="modal-btn-row">
-        <button type="button" class="btn btn-primary btn-block" id="btn-modal-rematch">
-          <span>Rematch</span>
-        </button>
-        <button type="button" class="btn btn-secondary btn-block" id="btn-modal-menu">
-          <span>Main Menu</span>
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Resign Confirmation Modal -->
   <div class="modal-backdrop" id="modal-resign-confirm" hidden>
     <div class="modal-card">
@@ -605,7 +1198,7 @@
         <div class="setting-item">
           <label class="setting-label-block" for="setting-sound-toggle">
             <span class="setting-title">Piece Audio</span>
-            <span class="setting-subtitle">Acoustic wood knock, capture and check sounds</span>
+            <span class="setting-subtitle">Acoustic wood knock, capture, check, and cheering</span>
           </label>
           <input type="checkbox" id="setting-sound-toggle" class="toggle-checkbox" checked>
         </div>
@@ -632,6 +1225,14 @@
             <span class="setting-subtitle">Display a-h and 1-8 labels on board squares</span>
           </label>
           <input type="checkbox" id="setting-coords-toggle" class="toggle-checkbox" checked>
+        </div>
+
+        <div class="setting-item">
+          <label class="setting-label-block" for="setting-movements-toggle">
+            <span class="setting-title">Movements Panel on Left (Chess.com layout)</span>
+            <span class="setting-subtitle">Place move notation and controls on left side of board</span>
+          </label>
+          <input type="checkbox" id="setting-movements-toggle" class="toggle-checkbox" checked>
         </div>
       </div>
 

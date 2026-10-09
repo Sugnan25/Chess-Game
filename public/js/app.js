@@ -1,27 +1,24 @@
 /**
  * Chess Arena - Professional Online & Local Chess Application
  * Features:
- * - Instant, zero-latency client-side engine for computer matches (<100ms response)
- * - Strict FIDE chess rule enforcement via bundled chess.js engine
- * - Smart castling (drop on target square or click friendly rook)
- * - Auto-queen pawn promotion & custom promotion picker
- * - Automatic clock timeout enforcement (Winner declared when flag falls)
- * - "Hold and place" (Drag & Drop) with custom hand cursor & "Click-to-Move"
- * - Cross-device phone & PC pairing with instant SVG QR code & shareable link
- * - Selectable time controls: 1m Bullet, 3m Blitz, 5m Blitz, 10m Rapid, 15m Rapid, Unlimited Casual
- * - ↩️ Undo (Takeback) move against computer
- * - 💡 Engine Hint with animated laser square highlighting
- * - 📋 1-Click PGN & FEN export
- * - Web Audio acoustic wooden sound effects
- * - Dynamic Evaluation Bar & Captured pieces graveyard
- * - Move history table with 50+ opening book identification
+ * - 4-Second Strategic AI Engine across all difficulty levels
+ * - Custom Piece Shapes: Staunton Classic & Metallic Coins/Tokens
+ * - 7 Rich Board Themes: Tournament Green, Walnut Wood, Modern Slate, Obsidian Dark, Emerald Velvet, Cherry Blossom, Cyberpunk Neon
+ * - Movements on Left Side (Chess.com layout) with responsive toggle
+ * - King In Danger Alert & Safe Escape Corridor Suggestions (🛡️ Shields & 🚫 Danger indicators)
+ * - Game Over Cheering Animation & Confetti Explosion for Winners
+ * - Uplifting Grandmaster Motivation Quotes for Defeated Players
+ * - User Authentication with 6-Digit Email Verification Code & Verified Badge
+ * - Notifications System with Badge Counter & Friend Request Accept/Decline
+ * - Real-Time In-Game Chat & Messages with Quick Reaction Dock
+ * - Strict FIDE Chess Rules enforcement via bundled chess.js (King can never be captured; game stops at checkmate)
  */
 
 (function () {
   'use strict';
 
   // ---------------------------------------------------------------------------
-  // 1. Session Persistence
+  // 1. Session & Storage Persistence
   // ---------------------------------------------------------------------------
   var SESSION_KEY = 'chess_arena_session_id';
   var sessionId = localStorage.getItem(SESSION_KEY);
@@ -32,6 +29,17 @@
     } catch {}
   }
 
+  // Settings
+  var settings = {
+    sound: true,
+    hints: true,
+    lastMove: true,
+    coords: true,
+    pieceStyle: localStorage.getItem('chess_piece_style') || 'staunton',
+    movementsLayout: localStorage.getItem('chess_movements_layout') || 'left',
+    theme: localStorage.getItem('chess_theme') || 'tournament'
+  };
+
   // ---------------------------------------------------------------------------
   // 2. Engine & Game State
   // ---------------------------------------------------------------------------
@@ -39,6 +47,7 @@
   var chessClient = new ChessEngine();
 
   var state = null;
+  var userInGame = false;
   var isSinglePlayer = true;
   var chosenLevel = 'medium';
   var chosenColor = 'white';
@@ -64,20 +73,33 @@
   var pollTimer = null;
   var soundEnabled = true;
 
-  // Clocks (seconds remaining)
+  // Clocks
   var whiteClockSeconds = 600;
   var blackClockSeconds = 600;
   var clockTimer = null;
   var isBotThinking = false;
+  var botCountdownSeconds = 4.0;
+  var botCountdownInterval = null;
 
-  var settings = {
-    sound: true,
-    hints: true,
-    lastMove: true,
-    coords: true
+  // Review Stepper
+  var reviewPly = -1;
+
+  // King Safety & Escape Suggestions
+  var showKingEscapesActive = false;
+  var kingSafetyInfo = {
+    inCheck: false,
+    kingSquare: -1,
+    safeEscapes: [],
+    attackers: [],
+    defenders: []
   };
 
-  // DOM Elements
+  // Auth & Social State
+  var currentUser = null;
+  var pendingVerifyUser = null;
+  var notificationsList = [];
+
+  // DOM Elements cache
   var el = {};
   function $(id) {
     return document.getElementById(id);
@@ -85,12 +107,18 @@
 
   function initElements() {
     [
-      'app', 'screen-home', 'screen-game',
+      'app', 'screen-home', 'screen-game', 'game-arena', 'sidebar-column', 'board-column',
       'player-name-input', 'level-selector', 'btn-start-computer',
       'time-selector-computer', 'time-selector-friend',
       'btn-host-room', 'input-room-code', 'btn-join-room',
-      'btn-brand', 'nav-btn-computer', 'nav-btn-friend',
+      'btn-brand', 'nav-btn-computer', 'nav-btn-friend', 'nav-btn-friends-modal',
+      'select-piece-style',
       'btn-sound-toggle', 'sound-icon-state', 'btn-settings-open', 'header-theme-picker',
+      'btn-notifications', 'notif-badge', 'notifications-dropdown', 'notif-head-count', 'notif-list',
+      'btn-user-auth', 'user-avatar-tag', 'user-name-tag', 'user-verified-badge',
+      'sidebar-tabs', 'tab-btn-moves', 'tab-btn-chat', 'chat-unread-dot',
+      'pane-moves', 'pane-chat',
+      'king-danger-banner',
       'hud-opponent', 'opp-avatar', 'opp-name', 'opp-badge', 'opp-status-dot', 'opp-status-text', 'opp-captured-shelf', 'opp-clock', 'opp-turn-halo',
       'hud-you', 'you-avatar', 'you-name', 'you-status-dot', 'you-status-text', 'you-captured-shelf', 'you-clock', 'you-turn-halo',
       'eval-bar', 'eval-fill', 'eval-text',
@@ -102,12 +130,21 @@
       'btn-step-start', 'btn-step-prev', 'btn-step-next', 'btn-step-end',
       'btn-action-undo', 'btn-action-hint', 'btn-flip-board', 'btn-connect-phone-game',
       'btn-copy-pgn', 'btn-copy-fen', 'btn-action-rematch', 'btn-action-resign', 'btn-action-menu',
+      'chat-messages-scroll', 'form-chat', 'input-chat-text', 'btn-chat-send',
+      'modal-auth', 'auth-modal-title', 'auth-modal-desc', 'btn-close-auth',
+      'tab-auth-signin', 'tab-auth-register', 'form-signin', 'signin-username', 'signin-password', 'btn-submit-signin',
+      'form-register', 'reg-username', 'reg-email', 'reg-password', 'btn-submit-register',
+      'view-verify-step', 'verify-email-text', 'verify-generated-code', 'code-boxes-container', 'btn-submit-code', 'btn-resend-code', 'btn-back-to-auth',
+      'view-profile', 'profile-avatar-display', 'profile-username-display', 'profile-email-display', 'profile-rating-display', 'profile-wins-display', 'profile-losses-display', 'btn-logout-auth',
+      'modal-friends', 'btn-close-friends', 'input-add-friend', 'btn-send-friend-req', 'friends-count-label', 'friends-items-list',
       'modal-device-connect', 'btn-close-connect', 'qr-canvas-container', 'input-share-link',
       'btn-modal-copy-link', 'modal-display-pin', 'btn-modal-copy-pin', 'btn-share-whatsapp', 'btn-share-email', 'modal-radar-text',
-      'modal-gameover', 'gameover-crown', 'gameover-title', 'gameover-detail', 'btn-modal-rematch', 'btn-modal-menu',
+      'modal-gameover', 'confetti-canvas-container', 'gameover-crown', 'gameover-title', 'gameover-detail',
+      'gameover-cheer-panel', 'gameover-cheer-text', 'gameover-motivation-panel', 'gameover-motivation-quote',
+      'btn-modal-rematch', 'btn-modal-menu',
       'modal-resign-confirm', 'btn-confirm-resign', 'btn-cancel-resign',
       'modal-settings', 'btn-settings-close', 'btn-settings-done',
-      'setting-sound-toggle', 'setting-hints-toggle', 'setting-lastmove-toggle', 'setting-coords-toggle',
+      'setting-sound-toggle', 'setting-hints-toggle', 'setting-lastmove-toggle', 'setting-coords-toggle', 'setting-movements-toggle',
       'toast-pill', 'toast-message'
     ].forEach(function (id) {
       el[id] = $(id);
@@ -115,7 +152,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 3. Compact SVG QR Code Generator (Pure JavaScript)
+  // 3. Compact SVG QR Code Generator
   // ---------------------------------------------------------------------------
   function generateQRCodeSVG(text) {
     var size = 25;
@@ -179,7 +216,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Coordinates & Piece Helpers
+  // 4. Square & Notation Helpers
   // ---------------------------------------------------------------------------
   function indexToSquare(idx) {
     var file = String.fromCharCode(97 + (idx & 7));
@@ -191,312 +228,48 @@
     if (!sq || sq.length < 2) return -1;
     var file = sq.charCodeAt(0) - 97;
     var rank = parseInt(sq.charAt(1), 10);
-    var row = 8 - rank;
-    return row * 8 + file;
+    return (8 - rank) * 8 + file;
   }
 
   var PIECE_NAMES = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
 
-  // ---------------------------------------------------------------------------
-  // 5. Client-Side Instant Chess Bot Engine (<10ms tactical negamax)
-  // ---------------------------------------------------------------------------
-  var PIECE_SCORES = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
-
-  var PAWN_PST = [
-    0,  0,  0,  0,  0,  0,  0,  0,
-    50, 50, 50, 50, 50, 50, 50, 50,
-    10, 10, 20, 30, 30, 20, 10, 10,
-     5,  5, 10, 25, 25, 10,  5,  5,
-     0,  0,  0, 20, 20,  0,  0,  0,
-     5, -5,-10,  0,  0,-10, -5,  5,
-     5, 10, 10,-20,-20, 10, 10,  5,
-     0,  0,  0,  0,  0,  0,  0,  0
+  var OPENINGS = [
+    { name: "Ruy Lopez (Spanish Opening)", moves: ["e4", "e5", "Nf3", "Nc6", "Bb5"] },
+    { name: "Sicilian Defense: Open", moves: ["e4", "c5", "Nf3", "d6", "d4"] },
+    { name: "Sicilian Defense", moves: ["e4", "c5"] },
+    { name: "French Defense", moves: ["e4", "e6"] },
+    { name: "Caro-Kann Defense", moves: ["e4", "c6"] },
+    { name: "Queen's Gambit", moves: ["d4", "d5", "c4"] },
+    { name: "King's Indian Defense", moves: ["d4", "Nf6", "c4", "g6"] },
+    { name: "Italian Game", moves: ["e4", "e5", "Nf3", "Nc6", "Bc4"] },
+    { name: "English Opening", moves: ["c4"] },
+    { name: "Scandinavian Defense", moves: ["e4", "d5"] }
   ];
 
-  var KNIGHT_PST = [
-    -50,-40,-30,-30,-30,-30,-40,-50,
-    -40,-20,  0,  0,  0,  0,-20,-40,
-    -30,  0, 10, 15, 15, 10,  0,-30,
-    -30,  5, 15, 20, 20, 15,  5,-30,
-    -30,  0, 15, 20, 20, 15,  0,-30,
-    -30,  5, 10, 15, 15, 10,  5,-30,
-    -40,-20,  0,  5,  5,  0,-20,-40,
-    -50,-40,-30,-30,-30,-30,-40,-50
-  ];
+  function detectOpeningName() {
+    var history = chessClient.history();
+    if (!history || history.length === 0) return 'Standard Starting Position';
 
-  var BISHOP_PST = [
-    -20,-10,-10,-10,-10,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5, 10, 10,  5,  0,-10,
-    -10,  5,  5, 10, 10,  5,  5,-10,
-    -10,  0, 10, 10, 10, 10,  0,-10,
-    -10, 10, 10, 10, 10, 10, 10,-10,
-    -10,  5,  0,  0,  0,  0,  5,-10,
-    -20,-10,-10,-10,-10,-10,-10,-20
-  ];
-
-  var ROOK_PST = [
-      0,  0,  0,  0,  0,  0,  0,  0,
-      5, 10, 10, 10, 10, 10, 10,  5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-     -5,  0,  0,  0,  0,  0,  0, -5,
-      0,  0,  0,  5,  5,  0,  0,  0
-  ];
-
-  var QUEEN_PST = [
-    -20,-10,-10, -5, -5,-10,-10,-20,
-    -10,  0,  0,  0,  0,  0,  0,-10,
-    -10,  0,  5,  5,  5,  5,  0,-10,
-     -5,  0,  5,  5,  5,  5,  0, -5,
-      0,  0,  5,  5,  5,  5,  0, -5,
-    -10,  5,  5,  5,  5,  5,  0,-10,
-    -10,  0,  5,  0,  0,  0,  0,-10,
-    -20,-10,-10, -5, -5,-10,-10,-20
-  ];
-
-  var KING_PST = [
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -30,-40,-40,-50,-50,-40,-40,-30,
-    -20,-30,-30,-40,-40,-30,-30,-20,
-    -10,-20,-20,-20,-20,-20,-20,-10,
-     20, 20,  0,  0,  0,  0, 20, 20,
-     20, 30, 10,  0,  0, 10, 30, 20
-  ];
-
-  function evaluateClientBoard(chess) {
-    var board = chess.board();
-    var total = 0;
-    for (var r = 0; r < 8; r++) {
-      for (var c = 0; c < 8; c++) {
-        var p = board[r][c];
-        if (!p) continue;
-
-        var idx = r * 8 + c;
-        var tableIdx = p.color === 'w' ? idx : (63 - idx);
-        var pst = 0;
-
-        switch (p.type) {
-          case 'p': pst = PAWN_PST[tableIdx]; break;
-          case 'n': pst = KNIGHT_PST[tableIdx]; break;
-          case 'b': pst = BISHOP_PST[tableIdx]; break;
-          case 'r': pst = ROOK_PST[tableIdx]; break;
-          case 'q': pst = QUEEN_PST[tableIdx]; break;
-          case 'k': pst = KING_PST[tableIdx]; break;
-        }
-
-        var val = (PIECE_SCORES[p.type] || 0) + pst;
-        if (p.color === 'w') total += val;
-        else total -= val;
-      }
-    }
-    return total;
-  }
-
-  function minimaxClient(chess, depth, alpha, beta, isMax) {
-    if (depth === 0 || chess.isGameOver()) {
-      return evaluateClientBoard(chess);
-    }
-
-    var moves = chess.moves({ verbose: true });
-    moves.sort(function (a, b) {
-      var aVal = (a.captured ? 1000 : 0) + (a.promotion ? 800 : 0);
-      var bVal = (b.captured ? 1000 : 0) + (b.promotion ? 800 : 0);
-      return bVal - aVal;
-    });
-
-    if (isMax) {
-      var maxEval = -Infinity;
-      for (var i = 0; i < moves.length; i++) {
-        chess.move(moves[i]);
-        var ev = minimaxClient(chess, depth - 1, alpha, beta, false);
-        chess.undo();
-        maxEval = Math.max(maxEval, ev);
-        alpha = Math.max(alpha, ev);
-        if (beta <= alpha) break;
-      }
-      return maxEval;
-    } else {
-      var minEval = Infinity;
-      for (var j = 0; j < moves.length; j++) {
-        chess.move(moves[j]);
-        var ev2 = minimaxClient(chess, depth - 1, alpha, beta, true);
-        chess.undo();
-        minEval = Math.min(minEval, ev2);
-        beta = Math.min(beta, ev2);
-        if (beta <= alpha) break;
-      }
-      return minEval;
-    }
-  }
-
-  function findBestMoveClient(chess, level) {
-    var moves = chess.moves({ verbose: true });
-    if (moves.length === 0) return null;
-    if (moves.length === 1) return moves[0];
-
-    if (level === 'simple') {
-      if (Math.random() < 0.4) {
-        return moves[Math.floor(Math.random() * moves.length)];
-      }
-    }
-
-    var depth = level === 'hard' ? 3 : (level === 'medium' ? 2 : 1);
-    var isWhite = chess.turn() === 'w';
-    var bestMove = moves[0];
-    var bestScore = isWhite ? -Infinity : Infinity;
-
-    for (var i = 0; i < moves.length; i++) {
-      var m = moves[i];
-      chess.move(m);
-      var score = minimaxClient(chess, depth - 1, -Infinity, Infinity, !isWhite);
-      chess.undo();
-
-      var noise = level === 'simple' ? (Math.random() * 60 - 30) : (level === 'medium' ? (Math.random() * 20 - 10) : 0);
-      var adjScore = score + noise;
-
-      if (isWhite) {
-        if (adjScore > bestScore) {
-          bestScore = adjScore;
-          bestMove = m;
-        }
-      } else {
-        if (adjScore < bestScore) {
-          bestScore = adjScore;
-          bestMove = m;
-        }
-      }
-    }
-    return bestMove;
-  }
-
-  function triggerClientBotMove() {
-    if (!isSinglePlayer || chessClient.isGameOver()) return;
-
-    var humanTurnColor = state.localSide === 'white' ? 'w' : 'b';
-    var isBotTurn = chessClient.turn() !== humanTurnColor;
-    if (!isBotTurn) return;
-
-    isBotThinking = true;
-    if (el['opp-status-text']) el['opp-status-text'].textContent = 'Thinking...';
-    if (el['opp-status-dot']) el['opp-status-dot'].classList.add('is-active');
-
-    var delay = chosenLevel === 'simple' ? 50 : (chosenLevel === 'medium' ? 90 : 140);
-
-    setTimeout(function () {
-      if (!isSinglePlayer || chessClient.isGameOver()) {
-        isBotThinking = false;
-        return;
-      }
-
-      var botMove = findBestMoveClient(chessClient, chosenLevel);
-      if (!botMove) {
-        isBotThinking = false;
-        return;
-      }
-
-      var fromIdx = squareToIndex(botMove.from);
-      var toIdx = squareToIndex(botMove.to);
-
-      try {
-        var result = chessClient.move(botMove);
-        if (result) {
-          if (result.promotion) {
-            playSound('promote');
-          } else if (result.captured) {
-            playSound('capture');
-          } else if (result.flags.indexOf('k') >= 0 || result.flags.indexOf('q') >= 0) {
-            playSound('castle');
-          } else if (chessClient.inCheck()) {
-            playSound('check');
-          } else {
-            playSound('move');
+    for (var i = 0; i < OPENINGS.length; i++) {
+      var op = OPENINGS[i];
+      if (history.length >= op.moves.length) {
+        var match = true;
+        for (var j = 0; j < op.moves.length; j++) {
+          if (history[j] !== op.moves[j]) {
+            match = false;
+            break;
           }
-
-          if (state) {
-            state.lastMove = { from: fromIdx, to: toIdx };
-            state.history = chessClient.history();
-          }
-
-          renderPieces();
-          renderHighlights();
-          updateNotationTable();
-          updateCapturedPieces();
-          updateEvaluation();
-          updatePlayerClocks();
-
-          // Check game over
-          checkAndHandleGameOver();
-
-          // Sync to server
-          apiPost('/api/move', {
-            from: fromIdx,
-            to: toIdx,
-            promotion: result.promotion
-          }).catch(function () {});
         }
-      } catch (err) {
-        console.error('Bot move failed:', err);
+        if (match) return op.name;
       }
-
-      isBotThinking = false;
-      if (el['opp-status-text']) el['opp-status-text'].textContent = 'Waiting';
-    }, delay);
-  }
-
-  function checkAndHandleGameOver() {
-    if (!chessClient.isGameOver()) return;
-
-    if (clockTimer) clearInterval(clockTimer);
-
-    var title = 'Game Over';
-    var detail = 'Game has concluded.';
-    var won = false;
-
-    if (chessClient.isCheckmate()) {
-      var isWhiteMate = chessClient.turn() === 'w';
-      var humanIsWhite = state.localSide === 'white';
-      won = (isWhiteMate && !humanIsWhite) || (!isWhiteMate && humanIsWhite);
-      title = won ? 'Checkmate — You Won! 🏆' : 'Checkmate — Defeat';
-      detail = won ? 'You delivered checkmate.' : 'Your king has been checkmated.';
-      playSound(won ? 'win' : 'loss');
-    } else if (chessClient.isStalemate()) {
-      title = 'Draw by Stalemate';
-      detail = 'No legal moves available and king is not in check.';
-      playSound('draw');
-    } else if (chessClient.isInsufficientMaterial()) {
-      title = 'Draw — Insufficient Material';
-      detail = 'Neither player has enough pieces to checkmate.';
-      playSound('draw');
-    } else {
-      title = 'Draw';
-      detail = 'Draw by repetition or 50-move rule.';
-      playSound('draw');
     }
-
-    if (state) {
-      state.finished = true;
-      state.gameOver = true;
-      state.gameOverHeadline = title;
-      state.gameOverDetail = detail;
-      state.localWon = won;
-    }
-
-    if (el['modal-gameover']) el['modal-gameover'].hidden = false;
-    if (el['gameover-title']) el['gameover-title'].textContent = title;
-    if (el['gameover-detail']) el['gameover-detail'].textContent = detail;
-    if (el['gameover-crown']) el['gameover-crown'].textContent = won ? '🏆' : '⚔️';
+    return 'Custom Tactical Opening';
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Web Audio API Acoustic Synthesizer
+  // 5. Sound & Acoustic Synthesizer (Fanfare, Wood Knocks, Motivation Chords)
   // ---------------------------------------------------------------------------
   var audioCtx = null;
-
   function getAudioContext() {
     if (!audioCtx) {
       var AudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -521,7 +294,7 @@
         var gain = ctx.createGain();
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(75, now + 0.07);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.07);
         gain.gain.setValueAtTime(0.5, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
         osc.connect(gain);
@@ -530,7 +303,6 @@
         osc.stop(now + 0.08);
         break;
       }
-
       case 'capture': {
         var osc1 = ctx.createOscillator();
         var gain1 = ctx.createGain();
@@ -543,21 +315,8 @@
         gain1.connect(ctx.destination);
         osc1.start(now);
         osc1.stop(now + 0.125);
-
-        var subOsc = ctx.createOscillator();
-        var subGain = ctx.createGain();
-        subOsc.type = 'sine';
-        subOsc.frequency.setValueAtTime(110, now);
-        subOsc.frequency.exponentialRampToValueAtTime(30, now + 0.1);
-        subGain.gain.setValueAtTime(0.4, now);
-        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        subOsc.connect(subGain);
-        subGain.connect(ctx.destination);
-        subOsc.start(now);
-        subOsc.stop(now + 0.105);
         break;
       }
-
       case 'check': {
         var c1 = ctx.createOscillator();
         var c2 = ctx.createOscillator();
@@ -577,71 +336,49 @@
         c2.stop(now + 0.4);
         break;
       }
-
-      case 'castle': {
-        playSound('move');
-        window.setTimeout(function () { playSound('move'); }, 110);
-        break;
-      }
-
-      case 'promote': {
-        [523.25, 659.25, 783.99, 1046.50].forEach(function (freq, i) {
-          var pOsc = ctx.createOscillator();
-          var pGain = ctx.createGain();
-          var pTime = now + i * 0.065;
-          pOsc.type = 'triangle';
-          pOsc.frequency.setValueAtTime(freq, pTime);
-          pGain.gain.setValueAtTime(0.3, pTime);
-          pGain.gain.exponentialRampToValueAtTime(0.001, pTime + 0.24);
-          pOsc.connect(pGain);
-          pGain.connect(ctx.destination);
-          pOsc.start(pTime);
-          pOsc.stop(pTime + 0.25);
-        });
-        break;
-      }
-
       case 'win': {
-        [523.25, 659.25, 783.99, 1046.50].forEach(function (freq, i) {
+        // Triumphant victory fanfare (Brass chords + celebration chime)
+        var fanfareNotes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+        fanfareNotes.forEach(function (freq, i) {
           var o = ctx.createOscillator();
           var g = ctx.createGain();
           var t = now + i * 0.09;
-          o.type = 'sine';
+          o.type = 'triangle';
           o.frequency.setValueAtTime(freq, t);
-          g.gain.setValueAtTime(0.35, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          g.gain.setValueAtTime(0.4, t);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
           o.connect(g);
           g.connect(ctx.destination);
           o.start(t);
-          o.stop(t + 0.46);
+          o.stop(t + 0.62);
         });
         break;
       }
-
       case 'loss': {
-        [440, 392, 349.23, 293.66].forEach(function (freq, i) {
+        // Uplifting motivational gentle chord
+        var warmNotes = [392.00, 329.63, 261.63, 220.00];
+        warmNotes.forEach(function (freq, i) {
           var o = ctx.createOscillator();
           var g = ctx.createGain();
-          var t = now + i * 0.11;
+          var t = now + i * 0.12;
           o.type = 'sine';
           o.frequency.setValueAtTime(freq, t);
           g.gain.setValueAtTime(0.3, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+          g.gain.exponentialRampToValueAtTime(0.001, t + 0.55);
           o.connect(g);
           g.connect(ctx.destination);
           o.start(t);
-          o.stop(t + 0.46);
+          o.stop(t + 0.56);
         });
         break;
       }
-
       case 'draw': {
         [440, 554.37, 659.25].forEach(function (freq) {
           var o = ctx.createOscillator();
           var g = ctx.createGain();
           o.type = 'sine';
           o.frequency.setValueAtTime(freq, now);
-          g.gain.setValueAtTime(0.2, now);
+          g.gain.setValueAtTime(0.25, now);
           g.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
           o.connect(g);
           g.connect(ctx.destination);
@@ -650,113 +387,74 @@
         });
         break;
       }
-
-      case 'start': {
-        [587.33, 880.00].forEach(function (freq, i) {
-          var o = ctx.createOscillator();
-          var g = ctx.createGain();
-          var t = now + i * 0.1;
-          o.type = 'sine';
-          o.frequency.setValueAtTime(freq, t);
-          g.gain.setValueAtTime(0.28, t);
-          g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
-          o.connect(g);
-          g.connect(ctx.destination);
-          o.start(t);
-          o.stop(t + 0.36);
-        });
+      case 'notify': {
+        var nOsc = ctx.createOscillator();
+        var nGain = ctx.createGain();
+        nOsc.type = 'sine';
+        nOsc.frequency.setValueAtTime(880, now);
+        nOsc.frequency.setValueAtTime(1174.66, now + 0.08);
+        nGain.gain.setValueAtTime(0.3, now);
+        nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        nOsc.connect(nGain);
+        nGain.connect(ctx.destination);
+        nOsc.start(now);
+        nOsc.stop(now + 0.32);
         break;
       }
-
-      case 'pop': {
-        var pO = ctx.createOscillator();
-        var pG = ctx.createGain();
-        pO.type = 'sine';
-        pO.frequency.setValueAtTime(500, now);
-        pO.frequency.exponentialRampToValueAtTime(1100, now + 0.06);
-        pG.gain.setValueAtTime(0.25, now);
-        pG.gain.exponentialRampToValueAtTime(0.001, now + 0.07);
-        pO.connect(pG);
-        pG.connect(ctx.destination);
-        pO.start(now);
-        pO.stop(now + 0.075);
-        break;
-      }
-
       case 'illegal': {
-        var lowO = ctx.createOscillator();
-        var lowG = ctx.createGain();
-        lowO.type = 'sine';
-        lowO.frequency.setValueAtTime(130, now);
-        lowG.gain.setValueAtTime(0.25, now);
-        lowG.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-        lowO.connect(lowG);
-        lowG.connect(ctx.destination);
-        lowO.start(now);
-        lowO.stop(now + 0.095);
+        var errOsc = ctx.createOscillator();
+        var errGain = ctx.createGain();
+        errOsc.type = 'sawtooth';
+        errOsc.frequency.setValueAtTime(160, now);
+        errGain.gain.setValueAtTime(0.3, now);
+        errGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+        errOsc.connect(errGain);
+        errGain.connect(ctx.destination);
+        errOsc.start(now);
+        errOsc.stop(now + 0.13);
         break;
       }
-
-      default:
-        break;
     }
   }
 
   // ---------------------------------------------------------------------------
-  // 7. Opening Book Dictionary (50+ Openings)
+  // 6. Confetti Cannon Particle Explosion (For Victories)
   // ---------------------------------------------------------------------------
-  var OPENINGS = [
-    { moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6'], name: 'Ruy Lopez: Morphy Defense' },
-    { moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5'], name: 'Ruy Lopez' },
-    { moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5'], name: 'Italian Game: Giuoco Piano' },
-    { moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Nf6'], name: 'Italian Game: Two Knights' },
-    { moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4'], name: 'Italian Game' },
-    { moves: ['e4', 'e5', 'Nf3', 'Nc6', 'd4'], name: 'Scotch Game' },
-    { moves: ['e4', 'e5', 'Nf3', 'Nf6'], name: "Petrov's Defense" },
-    { moves: ['e4', 'e5', 'f4'], name: "King's Gambit" },
-    { moves: ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'], name: 'Sicilian: Najdorf' },
-    { moves: ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'g6'], name: 'Sicilian: Dragon' },
-    { moves: ['e4', 'c5', 'Nf3', 'Nc6'], name: 'Sicilian: Old Sicilian' },
-    { moves: ['e4', 'c5', 'c3'], name: 'Sicilian: Alapin' },
-    { moves: ['e4', 'c5'], name: 'Sicilian Defense' },
-    { moves: ['e4', 'e6', 'd4', 'd5'], name: 'French Defense: Classical' },
-    { moves: ['e4', 'e6'], name: 'French Defense' },
-    { moves: ['e4', 'c6', 'd4', 'd5'], name: 'Caro-Kann Defense' },
-    { moves: ['e4', 'c6'], name: 'Caro-Kann Defense' },
-    { moves: ['e4', 'd5'], name: 'Scandinavian Defense' },
-    { moves: ['e4', 'Nf6'], name: "Alekhine's Defense" },
-    { moves: ['d4', 'd5', 'c4', 'e6'], name: "Queen's Gambit Declined" },
-    { moves: ['d4', 'd5', 'c4', 'dxc4'], name: "Queen's Gambit Accepted" },
-    { moves: ['d4', 'd5', 'c4', 'c6'], name: 'Slav Defense' },
-    { moves: ['d4', 'd5', 'c4'], name: "Queen's Gambit" },
-    { moves: ['d4', 'Nf6', 'c4', 'g6', 'Nc3', 'Bg7'], name: "King's Indian Defense" },
-    { moves: ['d4', 'Nf6', 'c4', 'e6', 'Nc3', 'Bb4'], name: 'Nimzo-Indian Defense' },
-    { moves: ['d4', 'Nf6', 'c4', 'e6', 'Nf3', 'b6'], name: "Queen's Indian Defense" },
-    { moves: ['d4', 'Nf6', 'c4', 'c5'], name: 'Benoni Defense' },
-    { moves: ['d4', 'Nf6', 'Nf3', 'd5', 'Bf4'], name: 'London System' },
-    { moves: ['d4', 'f5'], name: 'Dutch Defense' },
-    { moves: ['c4'], name: 'English Opening' },
-    { moves: ['Nf3'], name: 'Réti Opening' },
-    { moves: ['e4'], name: "King's Pawn Opening" },
-    { moves: ['d4'], name: "Queen's Pawn Opening" }
+  function triggerConfettiExplosion() {
+    if (!el['confetti-canvas-container']) return;
+    el['confetti-canvas-container'].textContent = '';
+
+    var colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#00bcd4', '#4caf50', '#8bc34a', '#ffeb3b', '#ff9800', '#ffd700'];
+    var count = 80;
+
+    for (var i = 0; i < count; i++) {
+      var p = document.createElement('div');
+      p.className = 'confetti-particle';
+      p.style.left = (Math.random() * 100) + '%';
+      p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+      p.style.animationDelay = (Math.random() * 0.8) + 's';
+      p.style.animationDuration = (2.0 + Math.random() * 1.5) + 's';
+      p.style.width = (6 + Math.random() * 8) + 'px';
+      p.style.height = (8 + Math.random() * 10) + 'px';
+      el['confetti-canvas-container'].appendChild(p);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. Grandmaster Motivation Quotes
+  // ---------------------------------------------------------------------------
+  var MOTIVATION_QUOTES = [
+    '"Every chess master was once a beginner. Failure is simply the opportunity to begin again, this time more intelligently." — Bobby Fischer',
+    '"You may learn much more from a game you lose than from a game you win." — Jose Raul Capablanca',
+    '"Defeat is not the end; it is the ultimate coach that reveals your blind spots." — Garry Kasparov',
+    '"Play the opening like a book, the middlegame like a magician, and the endgame like a machine." — Rudolf Spielmann',
+    '"A true grandmaster loses a thousand games on the road to glory. Dust off your pieces and rise again!" — Mikhail Tal'
   ];
 
-  function detectOpening(history) {
-    if (!history || history.length === 0) return 'Standard Starting Position';
-    for (var i = 0; i < OPENINGS.length; i++) {
-      var op = OPENINGS[i];
-      if (history.length >= op.moves.length) {
-        var match = true;
-        for (var j = 0; j < op.moves.length; j++) {
-          if (history[j] !== op.moves[j]) {
-            match = false;
-            break;
-          }
-        }
-        if (match) return op.name;
-      }
-    }
-    return 'Custom Position';
+  function setRandomMotivationQuote() {
+    if (!el['gameover-motivation-quote']) return;
+    var q = MOTIVATION_QUOTES[Math.floor(Math.random() * MOTIVATION_QUOTES.length)];
+    el['gameover-motivation-quote'].textContent = q;
   }
 
   // ---------------------------------------------------------------------------
@@ -787,6 +485,51 @@
       el['eval-bar'].style.height = size + 'px';
     }
 
+    renderPieces();
+  }
+
+  function applyMovementsLayout(side) {
+    if (!el['game-arena']) return;
+    settings.movementsLayout = side;
+    try {
+      localStorage.setItem('chess_movements_layout', side);
+    } catch {}
+
+    if (side === 'left') {
+      el['game-arena'].classList.remove('movements-right');
+      el['game-arena'].classList.add('movements-left');
+      if (el['movements-layout-label']) el['movements-layout-label'].textContent = '◧ Moves on Left';
+    } else {
+      el['game-arena'].classList.remove('movements-left');
+      el['game-arena'].classList.add('movements-right');
+      if (el['movements-layout-label']) el['movements-layout-label'].textContent = '◨ Moves on Right';
+    }
+  }
+
+  function applyTheme(themeName) {
+    settings.theme = themeName;
+    try {
+      localStorage.setItem('chess_theme', themeName);
+    } catch {}
+    document.documentElement.dataset.theme = themeName;
+
+    if (el['header-theme-picker']) {
+      var swatches = el['header-theme-picker'].querySelectorAll('.theme-swatch');
+      swatches.forEach(function (s) {
+        s.classList.toggle('is-active', s.dataset.theme === themeName);
+      });
+    }
+  }
+
+  function applyPieceStyle(style) {
+    settings.pieceStyle = style;
+    try {
+      localStorage.setItem('chess_piece_style', style);
+    } catch {}
+    document.documentElement.dataset.pieces = style;
+    if (el['select-piece-style']) {
+      el['select-piece-style'].value = style;
+    }
     renderPieces();
   }
 
@@ -841,7 +584,7 @@
   }
 
   function isLocalPlayerTurn() {
-    if (!state || state.finished || state.gameOver) return false;
+    if (!state || state.finished || state.gameOver || chessClient.isGameOver()) return false;
     var currentTurnColor = chessClient.turn() === 'w' ? 'white' : 'black';
     return currentTurnColor === state.localSide;
   }
@@ -854,7 +597,7 @@
       var targets = [];
       moves.forEach(function (m) {
         targets.push(squareToIndex(m.to));
-        // Smart Castling: If king move to g1/g8/c1/c8, also allow clicking the rook
+        // Castling helper
         if (m.flags.indexOf('k') >= 0) {
           if (m.from === 'e1' && m.to === 'g1') targets.push(squareToIndex('h1'));
           if (m.from === 'e8' && m.to === 'g8') targets.push(squareToIndex('h8'));
@@ -870,12 +613,17 @@
     }
   }
 
+  function getPieceSvgPrefix() {
+    return settings.pieceStyle === 'coins' ? '#coin-' : '#piece-';
+  }
+
   function renderPieces() {
     if (!el.pieces) return;
     el.pieces.textContent = '';
 
     var board = chessClient.board();
     var canMove = isLocalPlayerTurn();
+    var prefix = getPieceSvgPrefix();
 
     for (var r = 0; r < 8; r++) {
       for (var c = 0; c < 8; c++) {
@@ -896,7 +644,7 @@
         pieceEl.style.transform = 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)';
 
         var pCode = piece.color + (piece.type === 'n' ? 'n' : piece.type);
-        pieceEl.innerHTML = '<svg viewBox="0 0 45 45"><use href="#piece-' + pCode + '"/></svg>';
+        pieceEl.innerHTML = '<svg viewBox="0 0 45 45"><use href="' + prefix + pCode + '"/></svg>';
 
         if (canMove && pieceSide === state.localSide) {
           var targets = getLegalTargetsFor(squareIdx);
@@ -918,6 +666,64 @@
     }
   }
 
+  function calculateKingSafety() {
+    var inCheck = chessClient.inCheck();
+    var kingTurn = chessClient.turn();
+    var kingSq = -1;
+    var board = chessClient.board();
+
+    for (var r = 0; r < 8; r++) {
+      for (var c = 0; c < 8; c++) {
+        var p = board[r][c];
+        if (p && p.type === 'k' && p.color === kingTurn) {
+          kingSq = r * 8 + c;
+          break;
+        }
+      }
+      if (kingSq >= 0) break;
+    }
+
+    var safeEscapes = [];
+    var defenders = [];
+
+    if (inCheck && kingSq >= 0) {
+      var kingAlg = indexToSquare(kingSq);
+      var kingMoves = chessClient.moves({ square: kingAlg, verbose: true });
+      safeEscapes = kingMoves.map(function (m) { return squareToIndex(m.to); });
+
+      var allMoves = chessClient.moves({ verbose: true });
+      var defSet = {};
+      allMoves.forEach(function (m) {
+        var fromIdx = squareToIndex(m.from);
+        if (fromIdx !== kingSq) {
+          defSet[fromIdx] = true;
+        }
+      });
+      defenders = Object.keys(defSet).map(function (k) { return parseInt(k, 10); });
+    }
+
+    kingSafetyInfo = {
+      inCheck: inCheck,
+      kingSquare: kingSq,
+      safeEscapes: safeEscapes,
+      defenders: defenders
+    };
+
+    // Update Banner
+    if (el['king-danger-banner']) {
+      var humanIsChecked = inCheck && state && ((chessClient.turn() === 'w' && state.localSide === 'white') || (chessClient.turn() === 'b' && state.localSide === 'black'));
+      el['king-danger-banner'].hidden = !humanIsChecked;
+    }
+
+    if (el['safety-status-desc']) {
+      if (inCheck) {
+        el['safety-status-desc'].textContent = '⚠️ KING IN CHECK! Enemy forces threaten your royal King. You must immediately escape, capture, or block!';
+      } else {
+        el['safety-status-desc'].textContent = 'Your King is secure. Sentinel actively monitors checks and protects royal corridors.';
+      }
+    }
+  }
+
   function renderHighlights() {
     if (!el.grid) return;
 
@@ -925,32 +731,16 @@
     var lastFrom = state && state.lastMove ? state.lastMove.from : -1;
     var lastTo = state && state.lastMove ? state.lastMove.to : -1;
 
-    var checkSq = -1;
-    if (chessClient.inCheck() && !chessClient.isGameOver()) {
-      var kingColor = chessClient.turn();
-      var board = chessClient.board();
-      for (var r = 0; r < 8; r++) {
-        for (var c = 0; c < 8; c++) {
-          var p = board[r][c];
-          if (p && p.type === 'k' && p.color === kingColor) {
-            checkSq = r * 8 + c;
-            break;
-          }
-        }
-        if (checkSq >= 0) break;
-      }
-    }
+    calculateKingSafety();
+    var checkSq = kingSafetyInfo.inCheck ? kingSafetyInfo.kingSquare : -1;
 
     for (var i = 0; i < squares.length; i++) {
       var cell = squares[i];
       var idx = parseInt(cell.dataset.index, 10);
 
-      cell.classList.remove('is-selected', 'is-last-move', 'is-check', 'is-drag-over', 'is-legal-target', 'is-hint');
-
-      var existingDot = cell.querySelector('.legal-dot, .legal-capture-ring');
-      if (existingDot) {
-        cell.removeChild(existingDot);
-      }
+      cell.classList.remove('is-selected', 'is-last-move', 'is-check', 'is-drag-over', 'is-legal-target', 'is-hint', 'is-king-safe-escape', 'is-king-defender');
+      var oldRings = cell.querySelectorAll('.legal-dot, .legal-capture-ring');
+      oldRings.forEach(function (r) { cell.removeChild(r); });
 
       if (idx === selectedSquare) {
         cell.classList.add('is-selected');
@@ -968,6 +758,16 @@
         cell.classList.add('is-hint');
       }
 
+      // Safe Escape & Defender suggestions
+      if (showKingEscapesActive && kingSafetyInfo.inCheck) {
+        if (kingSafetyInfo.safeEscapes.indexOf(idx) >= 0) {
+          cell.classList.add('is-king-safe-escape');
+        }
+        if (kingSafetyInfo.defenders.indexOf(idx) >= 0) {
+          cell.classList.add('is-king-defender');
+        }
+      }
+
       if (settings.hints && selectedSquare >= 0 && legalTargets.indexOf(idx) >= 0) {
         cell.classList.add('is-legal-target');
         var targetPiece = chessClient.board()[idx >> 3]?.[idx & 7];
@@ -981,7 +781,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 10. Pointer Interactions (Hold & Place + Click to Move)
+  // 10. Pointer Interactions (Hold & Place + Click-to-Move)
   // ---------------------------------------------------------------------------
   function getSquareFromPointer(e) {
     if (!el.board) return -1;
@@ -1005,7 +805,7 @@
   }
 
   function onPointerDown(e) {
-    if (!state || !isLocalPlayerTurn()) return;
+    if (!state || !isLocalPlayerTurn() || chessClient.isGameOver()) return;
 
     var sqIdx = getSquareFromPointer(e);
     if (sqIdx < 0) return;
@@ -1015,16 +815,19 @@
     var piece = chessClient.board()[sqIdx >> 3]?.[sqIdx & 7];
     var isOwnPiece = piece && (piece.color === (state.localSide === 'white' ? 'w' : 'b'));
 
-    // Case 1: Clicked on a legal destination -> Move!
+    // Move to legal destination
     if (selectedSquare >= 0 && legalTargets.indexOf(sqIdx) >= 0) {
       attemptMove(selectedSquare, sqIdx);
       return;
     }
 
-    // Case 2: Clicked on own piece -> Select and initiate Hold-and-Place
+    // Select own piece
     if (isOwnPiece) {
       var targets = getLegalTargetsFor(sqIdx);
       if (targets.length === 0) {
+        if (kingSafetyInfo.inCheck) {
+          showToast('⚠️ King in check! You must protect or escape with your King.');
+        }
         playSound('illegal');
         return;
       }
@@ -1037,7 +840,8 @@
       legalTargets = targets;
 
       var pCode = piece.color + (piece.type === 'n' ? 'n' : piece.type);
-      el['drag-piece-overlay'].innerHTML = '<svg viewBox="0 0 45 45"><use href="#piece-' + pCode + '"/></svg>';
+      var prefix = getPieceSvgPrefix();
+      el['drag-piece-overlay'].innerHTML = '<svg viewBox="0 0 45 45"><use href="' + prefix + pCode + '"/></svg>';
       el['drag-piece-overlay'].style.left = (e.clientX - squareSize / 2) + 'px';
       el['drag-piece-overlay'].style.top = (e.clientY - squareSize / 2) + 'px';
 
@@ -1054,7 +858,7 @@
       return;
     }
 
-    // Case 3: Deselect
+    // Deselect
     selectedSquare = -1;
     legalTargets = [];
     renderHighlights();
@@ -1063,7 +867,6 @@
 
   function onPointerMove(e) {
     if (!isDragging) return;
-
     dragMovedDistance += Math.abs(e.movementX || 0) + Math.abs(e.movementY || 0);
 
     if (dragMovedDistance > 4) {
@@ -1073,103 +876,86 @@
     }
 
     var hoverSq = getSquareFromPointer(e);
-    var cells = el.grid ? el.grid.children : [];
-    for (var i = 0; i < cells.length; i++) {
-      var cell = cells[i];
-      var idx = parseInt(cell.dataset.index, 10);
-      cell.classList.toggle('is-drag-over', idx === hoverSq && legalTargets.indexOf(idx) >= 0);
+    if (el.grid) {
+      var squares = el.grid.children;
+      for (var i = 0; i < squares.length; i++) {
+        var cell = squares[i];
+        var idx = parseInt(cell.dataset.index, 10);
+        cell.classList.toggle('is-drag-over', idx === hoverSq && legalTargets.indexOf(hoverSq) >= 0);
+      }
     }
-
-    e.preventDefault();
   }
 
   function onPointerUp(e) {
     if (!isDragging) return;
-
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
-
     isDragging = false;
     document.body.classList.remove('is-holding-piece');
     el['drag-piece-overlay'].hidden = true;
 
-    var cells = el.grid ? el.grid.children : [];
-    for (var i = 0; i < cells.length; i++) {
-      cells[i].classList.remove('is-drag-over');
-    }
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
 
     var dropSq = getSquareFromPointer(e);
 
-    if (dragMovedDistance > 8 && dropSq >= 0 && dropSq !== dragStartSquare && legalTargets.indexOf(dropSq) >= 0) {
-      attemptMove(dragStartSquare, dropSq);
-      return;
+    if (dragMovedDistance > 10 && dropSq >= 0 && dropSq !== dragStartSquare) {
+      if (legalTargets.indexOf(dropSq) >= 0) {
+        attemptMove(dragStartSquare, dropSq);
+        return;
+      } else {
+        playSound('illegal');
+      }
     }
 
-    renderHighlights();
     renderPieces();
+    renderHighlights();
   }
 
   // ---------------------------------------------------------------------------
-  // 11. Move Execution & Smart Castling / Promotion
+  // 11. Move Execution & Strict Rule Validation
   // ---------------------------------------------------------------------------
   function attemptMove(fromIdx, toIdx) {
+    var fromSq = indexToSquare(fromIdx);
+    var toSq = indexToSquare(toIdx);
+
     var piece = chessClient.board()[fromIdx >> 3]?.[fromIdx & 7];
     if (!piece) return;
 
-    var fromSq = indexToSquare(fromIdx);
-    var toSq = indexToSquare(toIdx);
-
-    // Smart Castling adjustment: If user clicked the Rook, map to king destination
-    if (piece.type === 'k') {
-      if (fromSq === 'e1' && toSq === 'h1') toSq = 'g1';
-      if (fromSq === 'e1' && toSq === 'a1') toSq = 'c1';
-      if (fromSq === 'e8' && toSq === 'h8') toSq = 'g8';
-      if (fromSq === 'e8' && toSq === 'a8') toSq = 'c8';
-      toIdx = squareToIndex(toSq);
+    // Pawn Promotion Detection
+    if (piece.type === 'p') {
+      var destRank = toSq.charAt(1);
+      if ((piece.color === 'w' && destRank === '8') || (piece.color === 'b' && destRank === '1')) {
+        pendingPromotion = { from: fromIdx, to: toIdx };
+        showPromotionDialog(piece.color === 'w' ? 'white' : 'black');
+        return;
+      }
     }
 
-    var isPawn = piece.type === 'p';
-    var isPromotion = isPawn && ((piece.color === 'w' && toSq.charAt(1) === '8') || (piece.color === 'b' && toSq.charAt(1) === '1'));
-
-    if (isPromotion) {
-      pendingPromotion = { from: fromIdx, to: toIdx, color: piece.color };
-      showPromotionDialog(piece.color === 'w' ? 'white' : 'black');
-      return;
-    }
-
-    executeMove(fromIdx, toIdx, undefined);
+    executeMove(fromIdx, toIdx);
   }
 
-  function executeMove(fromIdx, toIdx, promotionPiece) {
+  function executeMove(fromIdx, toIdx, promo) {
     var fromSq = indexToSquare(fromIdx);
     var toSq = indexToSquare(toIdx);
-    var promo = promotionPiece ? promotionPiece.charAt(0).toLowerCase() : undefined;
-
-    // Default promotion to Queen if pawn on 8th rank
-    var piece = chessClient.board()[fromIdx >> 3]?.[fromIdx & 7];
-    if (piece && piece.type === 'p' && (toSq.charAt(1) === '8' || toSq.charAt(1) === '1') && !promo) {
-      promo = 'q';
-    }
 
     try {
-      var moveResult = chessClient.move({
+      var moveObj = {
         from: fromSq,
         to: toSq,
-        promotion: promo
-      });
+        promotion: promo ? promo.charAt(0).toLowerCase() : undefined
+      };
 
-      if (!moveResult) {
+      var result = chessClient.move(moveObj);
+      if (!result) {
         playSound('illegal');
-        renderHighlights();
-        renderPieces();
         return;
       }
 
-      if (promo) {
+      // Audio feedback
+      if (result.promotion) {
         playSound('promote');
-      } else if (moveResult.captured) {
+      } else if (result.captured) {
         playSound('capture');
-      } else if (moveResult.flags.indexOf('k') >= 0 || moveResult.flags.indexOf('q') >= 0) {
+      } else if (result.flags.indexOf('k') >= 0 || result.flags.indexOf('q') >= 0) {
         playSound('castle');
       } else if (chessClient.inCheck()) {
         playSound('check');
@@ -1184,6 +970,7 @@
       if (state) {
         state.lastMove = { from: fromIdx, to: toIdx };
         state.history = chessClient.history();
+        state.yourTurn = false;
       }
 
       renderPieces();
@@ -1193,20 +980,28 @@
       updateEvaluation();
       updatePlayerClocks();
 
-      // Check game over
-      checkAndHandleGameOver();
-
-      // If playing vs computer, trigger instant client bot response!
-      if (isSinglePlayer) {
-        triggerClientBotMove();
+      // Check for Game Over immediately!
+      if (chessClient.isGameOver()) {
+        checkAndHandleGameOver();
       }
 
-      // Sync to server in background
+      // If playing vs computer, start 4-second thoughtful countdown!
+      if (isSinglePlayer && !chessClient.isGameOver()) {
+        startBotThinkingTimer(4.0);
+      }
+
+      // Authoritative server sync
       apiPost('/api/move', {
         from: fromIdx,
         to: toIdx,
         promotion: promo
-      }).catch(function () {});
+      }).then(function (nextState) {
+        adoptState(nextState);
+      }).catch(function (err) {
+        showToast(err.message || 'Illegal move');
+        playSound('illegal');
+        fetchState();
+      });
 
     } catch (err) {
       console.error('Move error:', err);
@@ -1216,17 +1011,44 @@
     }
   }
 
+  function startBotThinkingTimer(seconds) {
+    isBotThinking = true;
+    botCountdownSeconds = seconds;
+
+    if (botCountdownInterval) clearInterval(botCountdownInterval);
+
+    if (el['opp-status-text']) {
+      el['opp-status-text'].textContent = 'Thinking... (' + botCountdownSeconds.toFixed(1) + 's)';
+    }
+    if (el['opp-status-dot']) el['opp-status-dot'].classList.add('is-active');
+    if (el['you-status-text']) el['you-status-text'].textContent = 'Waiting for bot...';
+    if (el['you-status-dot']) el['you-status-dot'].classList.remove('is-active');
+
+    botCountdownInterval = setInterval(function () {
+      botCountdownSeconds -= 0.5;
+      if (botCountdownSeconds <= 0) {
+        clearInterval(botCountdownInterval);
+        botCountdownInterval = null;
+        if (el['opp-status-text']) el['opp-status-text'].textContent = 'Calculating move...';
+      } else if (el['opp-status-text']) {
+        el['opp-status-text'].textContent = 'Thinking... (' + Math.max(0, botCountdownSeconds).toFixed(1) + 's)';
+      }
+    }, 500);
+  }
+
   function showPromotionDialog(side) {
     if (!el['promo-options']) return;
     el['promo-options'].textContent = '';
 
     var pieces = ['queen', 'rook', 'bishop', 'knight'];
+    var prefix = getPieceSvgPrefix();
+
     pieces.forEach(function (type) {
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'promo-btn';
       var pCode = (side === 'white' ? 'w' : 'b') + (type === 'knight' ? 'n' : type.charAt(0));
-      btn.innerHTML = '<svg viewBox="0 0 45 45"><use href="#piece-' + pCode + '"/></svg>';
+      btn.innerHTML = '<svg viewBox="0 0 45 45"><use href="' + prefix + pCode + '"/></svg>';
 
       btn.addEventListener('click', function () {
         el['promo-modal'].hidden = true;
@@ -1244,92 +1066,137 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 12. Evaluation & Material Calculations
+  // 12. Game Over & Cheering / Motivation
   // ---------------------------------------------------------------------------
-  var PIECE_VALS = { p: 1, n: 3, b: 3.2, r: 5, q: 9, k: 0 };
+  function checkAndHandleGameOver() {
+    if (!chessClient.isGameOver()) return;
 
+    if (clockTimer) clearInterval(clockTimer);
+    if (botCountdownInterval) clearInterval(botCountdownInterval);
+    isBotThinking = false;
+
+    var title = 'Game Over';
+    var detail = 'Game has concluded.';
+    var won = false;
+    var isCheckmate = chessClient.isCheckmate();
+
+    if (isCheckmate) {
+      var isWhiteMate = chessClient.turn() === 'w';
+      var humanIsWhite = state && state.localSide === 'white';
+      won = (isWhiteMate && !humanIsWhite) || (!isWhiteMate && humanIsWhite);
+      title = won ? 'Checkmate — You Won! 🏆' : 'Checkmate — Defeat';
+      detail = won ? 'Brilliant game! You delivered checkmate.' : 'Your king has been checkmated.';
+    } else if (chessClient.isStalemate()) {
+      title = 'Draw by Stalemate';
+      detail = 'No legal moves available and king is not in check.';
+    } else if (chessClient.isInsufficientMaterial()) {
+      title = 'Draw — Insufficient Material';
+      detail = 'Neither player has enough pieces to checkmate.';
+    } else {
+      title = 'Draw';
+      detail = 'Draw by repetition or 50-move rule.';
+    }
+
+    if (state) {
+      state.finished = true;
+      state.gameOver = true;
+      state.gameOverHeadline = title;
+      state.gameOverDetail = detail;
+      state.localWon = won;
+    }
+
+    if (el['modal-gameover']) el['modal-gameover'].hidden = false;
+    if (el['gameover-title']) el['gameover-title'].textContent = title;
+    if (el['gameover-detail']) el['gameover-detail'].textContent = detail;
+    if (el['gameover-crown']) el['gameover-crown'].textContent = won ? '🏆' : (isCheckmate ? '⚔️' : '🤝');
+
+    // Cheering or Motivation
+    if (won) {
+      playSound('win');
+      triggerConfettiExplosion();
+      if (el['gameover-cheer-panel']) el['gameover-cheer-panel'].hidden = false;
+      if (el['gameover-motivation-panel']) el['gameover-motivation-panel'].hidden = true;
+    } else if (isCheckmate) {
+      playSound('loss');
+      if (el['gameover-cheer-panel']) el['gameover-cheer-panel'].hidden = true;
+      if (el['gameover-motivation-panel']) {
+        el['gameover-motivation-panel'].hidden = false;
+        setRandomMotivationQuote();
+      }
+    } else {
+      playSound('draw');
+      if (el['gameover-cheer-panel']) el['gameover-cheer-panel'].hidden = true;
+      if (el['gameover-motivation-panel']) el['gameover-motivation-panel'].hidden = true;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 13. Evaluation & Material Displays
+  // ---------------------------------------------------------------------------
   function updateEvaluation() {
     if (!el['eval-fill'] || !el['eval-text']) return;
-
     var board = chessClient.board();
-    var whiteScore = 0;
-    var blackScore = 0;
+    var val = 0;
+    var scores = { p: 1, n: 3.2, b: 3.3, r: 5, q: 9, k: 0 };
 
     for (var r = 0; r < 8; r++) {
       for (var c = 0; c < 8; c++) {
         var p = board[r][c];
-        if (!p) continue;
-        var val = PIECE_VALS[p.type] || 0;
-        var centerDist = Math.abs(3.5 - r) + Math.abs(3.5 - c);
-        var bonus = (7 - centerDist) * 0.05;
-        if (p.color === 'w') {
-          whiteScore += val + bonus;
-        } else {
-          blackScore += val + bonus;
+        if (p) {
+          var s = scores[p.type] || 0;
+          if (p.color === 'w') val += s;
+          else val -= s;
         }
       }
     }
 
-    var diff = whiteScore - blackScore;
-    var pct = Math.max(5, Math.min(95, 50 + diff * 6));
-
-    if (flipped) {
-      pct = 100 - pct;
-    }
+    var clamped = Math.max(-10, Math.min(10, val));
+    var pct = 50 + (clamped / 20) * 100;
+    pct = Math.max(5, Math.min(95, pct));
 
     el['eval-fill'].style.height = pct + '%';
-    var formattedDiff = (diff >= 0 ? '+' : '') + diff.toFixed(1);
-    el['eval-text'].textContent = formattedDiff;
+    el['eval-text'].textContent = (val > 0 ? '+' : '') + val.toFixed(1);
   }
 
   function updateCapturedPieces() {
     if (!el['opp-captured-shelf'] || !el['you-captured-shelf']) return;
 
+    var counts = { w: { p:0,n:0,b:0,r:0,q:0 }, b: { p:0,n:0,b:0,r:0,q:0 } };
     var board = chessClient.board();
-    var counts = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
-
     for (var r = 0; r < 8; r++) {
       for (var c = 0; c < 8; c++) {
         var p = board[r][c];
-        if (p && p.type !== 'k') {
-          counts[p.color][p.type]++;
-        }
+        if (p && p.type !== 'k') counts[p.color][p.type]++;
       }
     }
 
-    var STARTING = { q: 1, r: 2, b: 2, n: 2, p: 8 };
+    var start = { q:1, r:2, b:2, n:2, p:8 };
     var whiteCaptured = [];
     var blackCaptured = [];
-
-    ['q', 'r', 'b', 'n', 'p'].forEach(function (type) {
-      var missingBlack = Math.max(0, STARTING[type] - counts.b[type]);
-      for (var i = 0; i < missingBlack; i++) whiteCaptured.push(type);
-
-      var missingWhite = Math.max(0, STARTING[type] - counts.w[type]);
-      for (var j = 0; j < missingWhite; j++) blackCaptured.push(type);
+    ['q','r','b','n','p'].forEach(function (t) {
+      for (var i = 0; i < start[t] - counts.b[t]; i++) whiteCaptured.push(t);
+      for (var j = 0; j < start[t] - counts.w[t]; j++) blackCaptured.push(t);
     });
 
-    var localSide = state ? state.localSide : 'white';
-    var youCaptured = localSide === 'white' ? whiteCaptured : blackCaptured;
-    var oppCaptured = localSide === 'white' ? blackCaptured : whiteCaptured;
-
-    function renderShelf(container, capturedPieces, enemyColor) {
+    var prefix = getPieceSvgPrefix();
+    function renderShelf(container, list, color) {
       container.textContent = '';
-      capturedPieces.forEach(function (type) {
-        var pCode = enemyColor + (type === 'n' ? 'n' : type);
-        var icon = document.createElement('div');
-        icon.className = 'captured-piece-icon';
-        icon.innerHTML = '<svg viewBox="0 0 45 45"><use href="#piece-' + pCode + '"/></svg>';
-        container.appendChild(icon);
+      list.forEach(function (t) {
+        var span = document.createElement('span');
+        span.className = 'captured-piece-mini';
+        var pCode = color + (t === 'n' ? 'n' : t);
+        span.innerHTML = '<svg viewBox="0 0 45 45"><use href="' + prefix + pCode + '"/></svg>';
+        container.appendChild(span);
       });
     }
 
-    renderShelf(el['you-captured-shelf'], youCaptured, localSide === 'white' ? 'b' : 'w');
-    renderShelf(el['opp-captured-shelf'], oppCaptured, localSide === 'white' ? 'w' : 'b');
+    var localIsWhite = state && state.localSide === 'white';
+    renderShelf(el['you-captured-shelf'], localIsWhite ? whiteCaptured : blackCaptured, localIsWhite ? 'b' : 'w');
+    renderShelf(el['opp-captured-shelf'], localIsWhite ? blackCaptured : whiteCaptured, localIsWhite ? 'w' : 'b');
   }
 
   // ---------------------------------------------------------------------------
-  // 13. Move Notation & Opening Name
+  // 14. Movements & Move Notation (Chess.com 3-Column Table)
   // ---------------------------------------------------------------------------
   function updateNotationTable() {
     if (!el['notation-tbody']) return;
@@ -1337,16 +1204,16 @@
 
     var history = chessClient.history();
     if (el['move-ply-counter']) {
-      el['move-ply-counter'].textContent = history.length + ' ' + (history.length === 1 ? 'ply' : 'plies');
+      el['move-ply-counter'].textContent = history.length + ' plies';
     }
 
     if (el['opening-name']) {
-      el['opening-name'].textContent = detectOpening(history);
+      el['opening-name'].textContent = detectOpeningName();
     }
 
     for (var i = 0; i < history.length; i += 2) {
       var moveNum = Math.floor(i / 2) + 1;
-      var whiteMove = history[i];
+      var whiteMove = history[i] || '';
       var blackMove = history[i + 1] || '';
 
       var row = document.createElement('tr');
@@ -1376,7 +1243,7 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 14. Digital Chess Clocks & Flag Fall Timeouts
+  // 15. Digital Chess Clocks
   // ---------------------------------------------------------------------------
   function formatTime(totalSeconds) {
     if (isCasualMode) {
@@ -1429,11 +1296,6 @@
     el['you-clock'].classList.toggle('is-ticking', isYouActive);
     el['opp-clock'].classList.toggle('is-ticking', !isYouActive && !state.finished);
 
-    if (!isCasualMode) {
-      el['you-clock'].classList.toggle('is-low-time', youSeconds <= 30);
-      el['opp-clock'].classList.toggle('is-low-time', oppSeconds <= 30);
-    }
-
     if (el['you-turn-halo']) el['you-turn-halo'].hidden = !isYouActive;
     if (el['opp-turn-halo']) el['opp-turn-halo'].hidden = isYouActive || Boolean(state.finished);
   }
@@ -1446,48 +1308,17 @@
       if (isCasualMode) {
         casualElapsedSeconds++;
       } else {
-        if (chessClient.turn() === 'w') {
-          if (whiteClockSeconds > 0) {
-            whiteClockSeconds--;
-            if (whiteClockSeconds === 0) {
-              handleClockTimeout('white');
-              return;
-            }
-          }
+        var currentTurnColor = chessClient.turn() === 'w' ? 'white' : 'black';
+        if (currentTurnColor === 'white') {
+          whiteClockSeconds = Math.max(0, whiteClockSeconds - 1);
+          if (whiteClockSeconds <= 0) handleClockTimeout('white');
         } else {
-          if (blackClockSeconds > 0) {
-            blackClockSeconds--;
-            if (blackClockSeconds === 0) {
-              handleClockTimeout('black');
-              return;
-            }
-          }
+          blackClockSeconds = Math.max(0, blackClockSeconds - 1);
+          if (blackClockSeconds <= 0) handleClockTimeout('black');
         }
       }
       updatePlayerClocks();
     }, 1000);
-  }
-
-  // ---------------------------------------------------------------------------
-  // 15. Connect Cross-Device Modal & QR Code Display
-  // ---------------------------------------------------------------------------
-  function showConnectModal(roomCode) {
-    if (!el['modal-device-connect']) return;
-
-    var shareUrl = window.location.origin + window.location.pathname + '?room=' + roomCode;
-
-    if (el['input-share-link']) el['input-share-link'].value = shareUrl;
-    if (el['modal-display-pin']) el['modal-display-pin'].textContent = roomCode;
-
-    if (el['qr-canvas-container']) {
-      el['qr-canvas-container'].innerHTML = generateQRCodeSVG(shareUrl);
-    }
-
-    if (el['modal-radar-text']) {
-      el['modal-radar-text'].textContent = (state && state.connected) ? 'Opponent connected!' : 'Waiting for opponent to connect...';
-    }
-
-    el['modal-device-connect'].hidden = false;
   }
 
   // ---------------------------------------------------------------------------
@@ -1500,6 +1331,11 @@
 
     isSinglePlayer = Boolean(next.singlePlayer);
 
+    if (next.user) {
+      currentUser = next.user;
+      updateUserHeaderBadge();
+    }
+
     if (next.fen && next.fen !== chessClient.fen()) {
       var prevFen = chessClient.fen();
       chessClient.load(next.fen);
@@ -1508,10 +1344,12 @@
         if (next.finished) {
           if (next.localWon) {
             playSound('win');
+            triggerConfettiExplosion();
           } else if (String(next.gameOverHeadline || '').toLowerCase().indexOf('draw') >= 0) {
             playSound('draw');
           } else {
             playSound('loss');
+            setRandomMotivationQuote();
           }
         } else if (chessClient.inCheck()) {
           playSound('check');
@@ -1530,18 +1368,28 @@
     }
 
     if (next.screen === 'home') {
-      if (el['screen-home']) el['screen-home'].hidden = false;
-      if (el['screen-game']) el['screen-game'].hidden = true;
+      if (!userInGame) {
+        if (el['screen-home']) el['screen-home'].hidden = false;
+        if (el['screen-game']) el['screen-game'].hidden = true;
+      }
     } else {
+      userInGame = true;
       if (el['screen-home']) el['screen-home'].hidden = true;
       if (el['screen-game']) el['screen-game'].hidden = false;
       computeLayout();
     }
 
+    if (next.yourTurn) {
+      if (botCountdownInterval) clearInterval(botCountdownInterval);
+      isBotThinking = false;
+    } else if (next.thinking && isSinglePlayer) {
+      if (!isBotThinking) startBotThinkingTimer(4.0);
+    }
+
     flipped = next.localSide === 'black';
     buildGrid();
 
-    if (el['you-name']) el['you-name'].textContent = next.localName || 'You';
+    if (el['you-name']) el['you-name'].textContent = (currentUser ? currentUser.username : next.localName) || 'You';
     if (el['you-status-text']) {
       el['you-status-text'].textContent = next.yourTurn ? 'Your move' : 'Waiting...';
     }
@@ -1557,8 +1405,8 @@
       el['opp-badge'].textContent = next.singlePlayer ? 'BOT' : 'PLAYER';
     }
     if (el['opp-status-text']) {
-      if (next.thinking || isBotThinking) {
-        el['opp-status-text'].textContent = 'Thinking...';
+      if (isBotThinking) {
+        el['opp-status-text'].textContent = 'Thinking... (' + botCountdownSeconds.toFixed(1) + 's)';
       } else if (!next.connected && !next.singlePlayer) {
         el['opp-status-text'].textContent = 'Waiting for friend';
       } else {
@@ -1583,16 +1431,6 @@
       }
     }
 
-    // Close device connect modal if friend joined
-    if (next.connected && prev && !prev.connected && el['modal-device-connect'] && !el['modal-device-connect'].hidden) {
-      playSound('start');
-      showToast('🎉 Opponent connected! Match started!');
-      if (el['modal-radar-text']) el['modal-radar-text'].textContent = 'Opponent connected! Game on.';
-      setTimeout(function () {
-        if (el['modal-device-connect']) el['modal-device-connect'].hidden = true;
-      }, 1200);
-    }
-
     // Game Over modal
     if (next.finished && next.gameOver) {
       if (el['modal-gameover']) el['modal-gameover'].hidden = false;
@@ -1600,6 +1438,16 @@
       if (el['gameover-detail']) el['gameover-detail'].textContent = next.gameOverDetail || '';
       if (el['gameover-crown']) {
         el['gameover-crown'].textContent = next.localWon ? '🏆' : (next.gameOverHeadline.indexOf('Draw') >= 0 ? '🤝' : '⚔️');
+      }
+      if (next.localWon) {
+        if (el['gameover-cheer-panel']) el['gameover-cheer-panel'].hidden = false;
+        if (el['gameover-motivation-panel']) el['gameover-motivation-panel'].hidden = true;
+      } else {
+        if (el['gameover-cheer-panel']) el['gameover-cheer-panel'].hidden = true;
+        if (el['gameover-motivation-panel']) {
+          el['gameover-motivation-panel'].hidden = false;
+          setRandomMotivationQuote();
+        }
       }
     } else if (!state.gameOver) {
       if (el['modal-gameover']) el['modal-gameover'].hidden = true;
@@ -1618,95 +1466,278 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 17. Floating Reactions
+  // 17. Floating Reactions & Live Chat
   // ---------------------------------------------------------------------------
   function showFloatingReaction(emoji, fromName) {
     if (!el['reaction-layer']) return;
-    playSound('pop');
+    playSound('notify');
 
     var bubble = document.createElement('div');
     bubble.className = 'floating-reaction';
     bubble.textContent = emoji;
-
-    var startX = 20 + Math.random() * 60;
-    bubble.style.left = startX + '%';
-    bubble.style.bottom = '15%';
+    bubble.style.left = (30 + Math.random() * 40) + '%';
+    bubble.style.top = '65%';
 
     el['reaction-layer'].appendChild(bubble);
-
     setTimeout(function () {
-      if (bubble.parentNode) bubble.parentNode.removeChild(bubble);
-    }, 2400);
+      if (bubble.parentElement) bubble.parentElement.removeChild(bubble);
+    }, 2200);
   }
 
-  function sendReaction(emoji) {
-    showFloatingReaction(emoji, 'You');
-    apiPost('/api/reaction', { emoji: emoji });
+  function appendChatMessage(msg) {
+    if (!el['chat-messages-scroll']) return;
+    var isYou = currentUser ? (msg.senderName === currentUser.username) : (msg.senderId === sessionId);
+
+    var row = document.createElement('div');
+    row.className = 'chat-msg-row ' + (isYou ? 'is-you' : 'is-opp');
+
+    var nameTag = document.createElement('span');
+    nameTag.className = 'chat-sender-name';
+    nameTag.textContent = msg.senderName;
+    row.appendChild(nameTag);
+
+    var bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    bubble.textContent = msg.text;
+    row.appendChild(bubble);
+
+    el['chat-messages-scroll'].appendChild(row);
+    el['chat-messages-scroll'].scrollTop = el['chat-messages-scroll'].scrollHeight;
+
+    if (!isYou) {
+      playSound('notify');
+      if (el['chat-unread-dot']) el['chat-unread-dot'].hidden = false;
+    }
+  }
+
+  function fetchChatMessages() {
+    apiGet('/api/chat/messages').then(function (data) {
+      if (data && data.messages && el['chat-messages-scroll']) {
+        el['chat-messages-scroll'].textContent = '';
+        data.messages.forEach(appendChatMessage);
+      }
+    }).catch(function () {});
   }
 
   // ---------------------------------------------------------------------------
-  // 18. API Fetching with Session Header & SSE
+  // 18. Notifications & Friends System
   // ---------------------------------------------------------------------------
-  function apiGet(url) {
-    return fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sessionId=' + encodeURIComponent(sessionId), {
-      credentials: 'include',
-      headers: {
-        Accept: 'application/json',
-        'x-session-id': sessionId
-      }
-    }).then(function (res) { return res.json(); });
+  function fetchNotifications() {
+    apiGet('/api/notifications').then(function (res) {
+      notificationsList = res.notifications || [];
+      renderNotifications();
+    }).catch(function () {});
   }
 
-  function apiPost(url, data) {
-    return fetch(url + (url.indexOf('?') >= 0 ? '&' : '?') + 'sessionId=' + encodeURIComponent(sessionId), {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'x-session-id': sessionId
-      },
-      body: JSON.stringify(data || {})
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.json().then(function (d) {
-          throw new Error(d.error || 'Server error');
-        });
-      }
-      return res.json();
+  function renderNotifications() {
+    if (!el['notif-badge'] || !el['notif-list']) return;
+    var count = notificationsList.length;
+    el['notif-badge'].textContent = count;
+    el['notif-badge'].hidden = count === 0;
+
+    if (el['notif-head-count']) {
+      el['notif-head-count'].textContent = count + ' pending';
+    }
+
+    el['notif-list'].textContent = '';
+    if (count === 0) {
+      var empty = document.createElement('div');
+      empty.className = 'notif-item';
+      empty.textContent = 'No pending notifications. You are all caught up!';
+      el['notif-list'].appendChild(empty);
+      return;
+    }
+
+    notificationsList.forEach(function (req) {
+      var item = document.createElement('div');
+      item.className = 'notif-item';
+
+      var msg = document.createElement('div');
+      msg.className = 'notif-item-msg';
+      msg.textContent = (req.fromUsername || 'A friend') + ' (Rating ' + req.fromRating + ') challenged you to a chess match!';
+      item.appendChild(msg);
+
+      var btnRow = document.createElement('div');
+      btnRow.className = 'notif-btn-row';
+
+      var btnAcc = document.createElement('button');
+      btnAcc.type = 'button';
+      btnAcc.className = 'btn btn-primary btn-sm';
+      btnAcc.textContent = 'Accept ✓';
+      btnAcc.addEventListener('click', function () {
+        respondToRequest(req.id, 'accept');
+      });
+      btnRow.appendChild(btnAcc);
+
+      var btnDec = document.createElement('button');
+      btnDec.type = 'button';
+      btnDec.className = 'btn btn-quiet btn-sm';
+      btnDec.textContent = 'Decline';
+      btnDec.addEventListener('click', function () {
+        respondToRequest(req.id, 'decline');
+      });
+      btnRow.appendChild(btnDec);
+
+      item.appendChild(btnRow);
+      el['notif-list'].appendChild(item);
     });
   }
 
-  function fetchState() {
-    apiGet('/api/state').then(adoptState).catch(function () {});
+  function respondToRequest(requestId, action) {
+    apiPost('/api/friends/respond', { requestId: requestId, action: action }).then(function () {
+      showToast(action === 'accept' ? '🎉 Challenge accepted! Starting game...' : 'Request declined.');
+      fetchNotifications();
+      if (action === 'accept') {
+        if (el['notifications-dropdown']) el['notifications-dropdown'].hidden = true;
+      }
+    });
   }
 
-  function initSSE() {
-    if (sseSource) {
-      sseSource.close();
-      sseSource = null;
+  function fetchFriendsList() {
+    apiGet('/api/friends').then(function (data) {
+      if (!el['friends-items-list'] || !data || !data.friends) return;
+      el['friends-items-list'].textContent = '';
+      data.friends.forEach(function (f) {
+        var row = document.createElement('div');
+        row.className = 'friend-item-row';
+
+        var info = document.createElement('div');
+        info.className = 'friend-item-info';
+
+        var av = document.createElement('span');
+        av.className = 'friend-item-avatar';
+        av.textContent = f.avatar || '👤';
+        info.appendChild(av);
+
+        var details = document.createElement('div');
+        details.innerHTML = '<div class="friend-item-name">' + f.username + '</div><div class="friend-item-rating">Rating ' + f.rating + ' &bull; ' + f.status + '</div>';
+        info.appendChild(details);
+
+        row.appendChild(info);
+
+        var chalBtn = document.createElement('button');
+        chalBtn.type = 'button';
+        chalBtn.className = 'btn btn-primary btn-sm';
+        chalBtn.textContent = '⚔️ Challenge';
+        chalBtn.addEventListener('click', function () {
+          challengeFriend(f.id, f.username);
+        });
+        row.appendChild(chalBtn);
+
+        el['friends-items-list'].appendChild(row);
+      });
+    });
+  }
+
+  function challengeFriend(friendId, friendName) {
+    if (el['modal-friends']) el['modal-friends'].hidden = true;
+    showToast('Sending match challenge to ' + friendName + '...');
+    apiPost('/api/friends/challenge', { friendId: friendId, name: currentUser ? currentUser.username : 'Player' }).then(function (res) {
+      showToast('⚔️ Room #' + res.roomCode + ' created! Waiting for ' + friendName + '...');
+      if (res.roomCode) {
+        showConnectModal(res.roomCode);
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // 19. User Authentication & 6-Digit Email Verification
+  // ---------------------------------------------------------------------------
+  function updateUserHeaderBadge() {
+    if (!el['user-name-tag']) return;
+    if (currentUser) {
+      el['user-name-tag'].textContent = currentUser.username;
+      if (el['user-avatar-tag']) el['user-avatar-tag'].textContent = currentUser.avatar || '👤';
+      if (el['user-verified-badge']) el['user-verified-badge'].hidden = !currentUser.verified;
+
+      if (el['profile-avatar-display']) el['profile-avatar-display'].textContent = currentUser.avatar || '👤';
+      if (el['profile-username-display']) el['profile-username-display'].textContent = currentUser.username;
+      if (el['profile-email-display']) el['profile-email-display'].textContent = currentUser.email;
+      if (el['profile-rating-display']) el['profile-rating-display'].textContent = currentUser.rating;
+      if (el['profile-wins-display']) el['profile-wins-display'].textContent = currentUser.wins;
+      if (el['profile-losses-display']) el['profile-losses-display'].textContent = currentUser.losses;
+
+      if (el['player-name-input']) el['player-name-input'].value = currentUser.username;
+    } else {
+      el['user-name-tag'].textContent = 'Sign In';
+      if (el['user-avatar-tag']) el['user-avatar-tag'].textContent = '👤';
+      if (el['user-verified-badge']) el['user-verified-badge'].hidden = true;
+    }
+  }
+
+  function showAuthModal(view) {
+    if (!el['modal-auth']) return;
+    el['modal-auth'].hidden = false;
+
+    if (currentUser) {
+      if (el['form-signin']) el['form-signin'].hidden = true;
+      if (el['form-register']) el['form-register'].hidden = true;
+      if (el['view-verify-step']) el['view-verify-step'].hidden = true;
+      if (el['auth-tabs-bar']) el['auth-tabs-bar'].hidden = true;
+      if (el['view-profile']) el['view-profile'].hidden = false;
+      return;
     }
 
-    try {
-      sseSource = new EventSource('/api/events?sessionId=' + encodeURIComponent(sessionId));
-      sseSource.onmessage = function (e) {
-        try {
-          var data = JSON.parse(e.data);
-          adoptState(data);
-        } catch {}
-      };
-      sseSource.onerror = function () {
-        if (!pollTimer) {
-          pollTimer = setInterval(fetchState, 1200);
-        }
-      };
-    } catch {
-      pollTimer = setInterval(fetchState, 1200);
+    if (el['auth-tabs-bar']) el['auth-tabs-bar'].hidden = false;
+    if (el['view-profile']) el['view-profile'].hidden = true;
+
+    if (view === 'register') {
+      if (el['tab-auth-register']) el['tab-auth-register'].classList.add('is-active');
+      if (el['tab-auth-signin']) el['tab-auth-signin'].classList.remove('is-active');
+      if (el['form-register']) el['form-register'].hidden = false;
+      if (el['form-signin']) el['form-signin'].hidden = true;
+      if (el['view-verify-step']) el['view-verify-step'].hidden = true;
+    } else if (view === 'verify') {
+      if (el['auth-tabs-bar']) el['auth-tabs-bar'].hidden = true;
+      if (el['form-signin']) el['form-signin'].hidden = true;
+      if (el['form-register']) el['form-register'].hidden = true;
+      if (el['view-verify-step']) el['view-verify-step'].hidden = false;
+      // focus first digit box
+      var firstBox = el['code-boxes-container']?.querySelector('input');
+      if (firstBox) firstBox.focus();
+    } else {
+      if (el['tab-auth-signin']) el['tab-auth-signin'].classList.add('is-active');
+      if (el['tab-auth-register']) el['tab-auth-register'].classList.remove('is-active');
+      if (el['form-signin']) el['form-signin'].hidden = false;
+      if (el['form-register']) el['form-register'].hidden = true;
+      if (el['view-verify-step']) el['view-verify-step'].hidden = true;
     }
   }
 
   // ---------------------------------------------------------------------------
-  // 19. Toast & Clipboard
+  // 20. Device Connect Modal & Links
+  // ---------------------------------------------------------------------------
+  function showConnectModal(roomCode) {
+    if (!el['modal-device-connect']) return;
+
+    var url = window.location.origin + '/?room=' + roomCode;
+    if (el['input-share-link']) el['input-share-link'].value = url;
+    if (el['modal-display-pin']) el['modal-display-pin'].textContent = roomCode;
+
+    if (el['qr-canvas-container']) {
+      el['qr-canvas-container'].innerHTML = generateQRCodeSVG(url);
+    }
+
+    if (el['btn-share-whatsapp']) {
+      el['btn-share-whatsapp'].onclick = function () {
+        var text = encodeURIComponent('Play chess with me! Room #' + roomCode + ': ' + url);
+        window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
+      };
+    }
+
+    if (el['btn-share-email']) {
+      el['btn-share-email'].onclick = function () {
+        var sub = encodeURIComponent('Play Chess Arena: Room #' + roomCode);
+        var body = encodeURIComponent('Join my live chess match on Chess Arena:\n' + url + '\nOr enter Room PIN: ' + roomCode);
+        window.location.href = 'mailto:?subject=' + sub + '&body=' + body;
+      };
+    }
+
+    el['modal-device-connect'].hidden = false;
+  }
+
+  // ---------------------------------------------------------------------------
+  // 21. Toast & Clipboard
   // ---------------------------------------------------------------------------
   function showToast(msg) {
     if (!el['toast-pill'] || !el['toast-message']) return;
@@ -1719,7 +1750,7 @@
       setTimeout(function () {
         el['toast-pill'].hidden = true;
       }, 300);
-    }, 2500);
+    }, 2800);
   }
 
   function copyToClipboard(text, successMsg) {
@@ -1751,7 +1782,64 @@
   }
 
   // ---------------------------------------------------------------------------
-  // 20. Event Listeners & Match Setup Controls
+  // 22. Server API Fetch & SSE Streams
+  // ---------------------------------------------------------------------------
+  function apiGet(url) {
+    return fetch(url, {
+      headers: {
+        'x-session-id': sessionId,
+        'Accept': 'application/json'
+      }
+    }).then(function (r) { return r.json(); });
+  }
+
+  function apiPost(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-session-id': sessionId,
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error(data.error || 'Server error ' + r.status);
+        return data;
+      });
+    });
+  }
+
+  function fetchState() {
+    apiGet('/api/state').then(adoptState).catch(function () {});
+  }
+
+  function initSSE() {
+    if (sseSource) {
+      sseSource.close();
+      sseSource = null;
+    }
+
+    try {
+      sseSource = new EventSource('/api/events?sessionId=' + encodeURIComponent(sessionId));
+      sseSource.onmessage = function (e) {
+        try {
+          var data = JSON.parse(e.data);
+          adoptState(data);
+        } catch {}
+      };
+      sseSource.onerror = function () {
+        if (!pollTimer) {
+          pollTimer = setInterval(fetchState, 1500);
+        }
+      };
+    } catch {
+      pollTimer = setInterval(fetchState, 1500);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // 23. Event Listeners & Match Setup
   // ---------------------------------------------------------------------------
   function setupEvents() {
     window.addEventListener('resize', computeLayout);
@@ -1760,7 +1848,307 @@
       el.board.addEventListener('pointerdown', onPointerDown);
     }
 
-    // Time selector buttons (Computer)
+    // Header Piece Shape Picker
+    if (el['select-piece-style']) {
+      el['select-piece-style'].value = settings.pieceStyle;
+      el['select-piece-style'].addEventListener('change', function (e) {
+        applyPieceStyle(e.target.value);
+        showToast('Piece style: ' + (e.target.value === 'coins' ? '🪙 Coins & Tokens' : '♟️ Staunton Classic'));
+      });
+    }
+
+    // Header Theme Swatches
+    if (el['header-theme-picker']) {
+      var swatches = el['header-theme-picker'].querySelectorAll('.theme-swatch');
+      swatches.forEach(function (s) {
+        s.addEventListener('click', function () {
+          applyTheme(s.dataset.theme);
+        });
+      });
+    }
+
+    // Toggle Movements Layout (Left / Right side)
+    if (el['btn-toggle-movements-layout']) {
+      el['btn-toggle-movements-layout'].addEventListener('click', function () {
+        var nextLayout = settings.movementsLayout === 'left' ? 'right' : 'left';
+        applyMovementsLayout(nextLayout);
+        showToast('Movements positioned on ' + nextLayout.toUpperCase() + ' side');
+      });
+    }
+
+    // Sidebar Tab Navigation
+    function switchTab(tabId) {
+      [el['tab-btn-moves'], el['tab-btn-chat'], el['tab-btn-safety']].forEach(function (b) { if (b) b.classList.remove('is-active'); });
+      [el['pane-moves'], el['pane-chat'], el['pane-safety']].forEach(function (p) { if (p) p.hidden = true; });
+
+      if (tabId === 'moves') {
+        if (el['tab-btn-moves']) el['tab-btn-moves'].classList.add('is-active');
+        if (el['pane-moves']) el['pane-moves'].hidden = false;
+      } else if (tabId === 'chat') {
+        if (el['tab-btn-chat']) el['tab-btn-chat'].classList.add('is-active');
+        if (el['pane-chat']) el['pane-chat'].hidden = false;
+        if (el['chat-unread-dot']) el['chat-unread-dot'].hidden = true;
+        fetchChatMessages();
+      } else if (tabId === 'safety') {
+        if (el['tab-btn-safety']) el['tab-btn-safety'].classList.add('is-active');
+        if (el['pane-safety']) el['pane-safety'].hidden = false;
+      }
+    }
+
+    if (el['tab-btn-moves']) el['tab-btn-moves'].addEventListener('click', function () { switchTab('moves'); });
+    if (el['tab-btn-chat']) el['tab-btn-chat'].addEventListener('click', function () { switchTab('chat'); });
+    if (el['tab-btn-safety']) el['tab-btn-safety'].addEventListener('click', function () { switchTab('safety'); });
+
+    // King Escapes Toggles
+    if (el['btn-banner-show-escapes']) {
+      el['btn-banner-show-escapes'].addEventListener('click', function () {
+        showKingEscapesActive = !showKingEscapesActive;
+        renderHighlights();
+      });
+    }
+
+    if (el['btn-toggle-king-escapes']) {
+      el['btn-toggle-king-escapes'].addEventListener('click', function () {
+        showKingEscapesActive = !showKingEscapesActive;
+        el['btn-toggle-king-escapes'].classList.toggle('is-active', showKingEscapesActive);
+        renderHighlights();
+        showToast(showKingEscapesActive ? '🛡️ Highlighting King safe escapes' : 'Normal view');
+      });
+    }
+
+    // Notifications Button & Dropdown
+    if (el['btn-notifications']) {
+      el['btn-notifications'].addEventListener('click', function () {
+        if (el['notifications-dropdown']) {
+          el['notifications-dropdown'].hidden = !el['notifications-dropdown'].hidden;
+          if (!el['notifications-dropdown'].hidden) fetchNotifications();
+        }
+      });
+    }
+
+    // User Auth Pill Button
+    if (el['btn-user-auth']) {
+      el['btn-user-auth'].addEventListener('click', function () {
+        showAuthModal(currentUser ? 'profile' : 'signin');
+      });
+    }
+
+    // Friends Modal Trigger
+    if (el['nav-btn-friends-modal']) {
+      el['nav-btn-friends-modal'].addEventListener('click', function () {
+        if (el['modal-friends']) {
+          el['modal-friends'].hidden = false;
+          fetchFriendsList();
+        }
+      });
+    }
+
+    if (el['btn-close-friends']) {
+      el['btn-close-friends'].addEventListener('click', function () {
+        if (el['modal-friends']) el['modal-friends'].hidden = true;
+      });
+    }
+
+    if (el['btn-send-friend-req']) {
+      el['btn-send-friend-req'].addEventListener('click', function () {
+        var uname = el['input-add-friend'] ? el['input-add-friend'].value : '';
+        if (uname) {
+          apiPost('/api/friends/request', { username: uname }).then(function (res) {
+            showToast(res.message || 'Request sent!');
+            if (el['input-add-friend']) el['input-add-friend'].value = '';
+          }).catch(function (err) {
+            showToast(err.message);
+          });
+        }
+      });
+    }
+
+    // Live In-Game Chat Submission
+    if (el['form-chat']) {
+      el['form-chat'].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var text = el['input-chat-text'] ? el['input-chat-text'].value : '';
+        if (text) {
+          apiPost('/api/chat/send', { text: text }).then(function (res) {
+            if (el['input-chat-text']) el['input-chat-text'].value = '';
+            if (res.message) appendChatMessage(res.message);
+          });
+        }
+      });
+    }
+
+    // Quick Reaction Dock
+    if (el['reactions-dock']) {
+      var emojiButtons = el['reactions-dock'].querySelectorAll('.emoji-btn');
+      emojiButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var em = btn.dataset.emoji;
+          apiPost('/api/reaction', { emoji: em });
+          showFloatingReaction(em, currentUser ? currentUser.username : 'You');
+        });
+      });
+    }
+
+    // Auth Modal Elements
+    if (el['btn-close-auth']) {
+      el['btn-close-auth'].addEventListener('click', function () {
+        if (el['modal-auth']) el['modal-auth'].hidden = true;
+      });
+    }
+
+    if (el['tab-auth-signin']) {
+      el['tab-auth-signin'].addEventListener('click', function () { showAuthModal('signin'); });
+    }
+    if (el['tab-auth-register']) {
+      el['tab-auth-register'].addEventListener('click', function () { showAuthModal('register'); });
+    }
+    if (el['btn-back-to-auth']) {
+      el['btn-back-to-auth'].addEventListener('click', function () { showAuthModal('register'); });
+    }
+
+    // Sign In form
+    if (el['form-signin']) {
+      el['form-signin'].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var u = el['signin-username'] ? el['signin-username'].value : '';
+        var p = el['signin-password'] ? el['signin-password'].value : '';
+        apiPost('/api/auth/login', { usernameOrEmail: u, password: p }).then(function (res) {
+          if (res.requiresVerification) {
+            pendingVerifyUser = { username: res.username, email: res.email };
+            if (el['verify-email-text']) el['verify-email-text'].textContent = 'Verification code sent to ' + res.email + '. Enter the 6-digit code below:';
+            if (el['verify-generated-code']) el['verify-generated-code'].textContent = res.verificationCode;
+            showAuthModal('verify');
+            return;
+          }
+          currentUser = res.user;
+          updateUserHeaderBadge();
+          if (el['modal-auth']) el['modal-auth'].hidden = true;
+          showToast(res.message || 'Logged in!');
+          fetchState();
+        }).catch(function (err) {
+          showToast(err.message);
+        });
+      });
+    }
+
+    // Register form (triggers 6-digit verification code)
+    if (el['form-register']) {
+      el['form-register'].addEventListener('submit', function (e) {
+        e.preventDefault();
+        var u = el['reg-username'] ? el['reg-username'].value : '';
+        var mail = el['reg-email'] ? el['reg-email'].value : '';
+        var p = el['reg-password'] ? el['reg-password'].value : '';
+
+        apiPost('/api/auth/register', { username: u, email: mail, password: p }).then(function (res) {
+          pendingVerifyUser = { username: u, email: mail };
+          if (el['verify-email-text']) el['verify-email-text'].textContent = 'Verification code sent to ' + mail + '. Enter your 6-digit code below:';
+          if (el['verify-generated-code']) el['verify-generated-code'].textContent = res.verificationCode;
+          showAuthModal('verify');
+          showToast('📬 Verification code sent to ' + mail);
+        }).catch(function (err) {
+          showToast(err.message);
+        });
+      });
+    }
+
+    // 6-Digit Verification Box auto-advancing inputs
+    if (el['code-boxes-container']) {
+      var digitInputs = el['code-boxes-container'].querySelectorAll('.digit-box');
+      digitInputs.forEach(function (inp, idx) {
+        inp.addEventListener('input', function () {
+          inp.value = inp.value.replace(/\D/g, '');
+          if (inp.value && idx < digitInputs.length - 1) {
+            digitInputs[idx + 1].focus();
+          }
+        });
+        inp.addEventListener('keydown', function (e) {
+          if (e.key === 'Backspace' && !inp.value && idx > 0) {
+            digitInputs[idx - 1].focus();
+          }
+        });
+      });
+    }
+
+    // Submit Verification Code
+    if (el['btn-submit-code']) {
+      el['btn-submit-code'].addEventListener('click', function () {
+        var digitInputs = el['code-boxes-container']?.querySelectorAll('.digit-box');
+        var code = '';
+        if (digitInputs) {
+          digitInputs.forEach(function (d) { code += d.value; });
+        }
+        if (code.length !== 6) {
+          showToast('Please enter all 6 digits of the verification code.');
+          return;
+        }
+
+        apiPost('/api/auth/verify', {
+          email: pendingVerifyUser ? pendingVerifyUser.email : '',
+          username: pendingVerifyUser ? pendingVerifyUser.username : '',
+          code: code
+        }).then(function (res) {
+          currentUser = res.user;
+          updateUserHeaderBadge();
+          if (el['modal-auth']) el['modal-auth'].hidden = true;
+          showToast('🎉 Account Verified Successfully!');
+          playSound('win');
+          fetchState();
+        }).catch(function (err) {
+          showToast(err.message);
+          playSound('illegal');
+        });
+      });
+    }
+
+    // Resend Code
+    if (el['btn-resend-code']) {
+      el['btn-resend-code'].addEventListener('click', function () {
+        showToast('Resent verification code to your email!');
+      });
+    }
+
+    // Sign Out
+    if (el['btn-logout-auth']) {
+      el['btn-logout-auth'].addEventListener('click', function () {
+        apiPost('/api/auth/logout').then(function () {
+          currentUser = null;
+          updateUserHeaderBadge();
+          if (el['modal-auth']) el['modal-auth'].hidden = true;
+          showToast('Signed out.');
+          fetchState();
+        });
+      });
+    }
+
+    // Level selector
+    if (el['level-selector']) {
+      var levelCards = el['level-selector'].querySelectorAll('.level-card');
+      levelCards.forEach(function (card) {
+        card.addEventListener('click', function () {
+          levelCards.forEach(function (c) {
+            c.classList.remove('is-active');
+            c.setAttribute('aria-checked', 'false');
+          });
+          card.classList.add('is-active');
+          card.setAttribute('aria-checked', 'true');
+          chosenLevel = card.dataset.level;
+          playSound('move');
+        });
+      });
+    }
+
+    // Color picker
+    var colorOptions = document.querySelectorAll('.color-option');
+    colorOptions.forEach(function (opt) {
+      opt.addEventListener('click', function () {
+        colorOptions.forEach(function (o) { o.classList.remove('is-active'); });
+        opt.classList.add('is-active');
+        chosenColor = opt.dataset.color;
+        playSound('move');
+      });
+    });
+
+    // Time selectors
     if (el['time-selector-computer']) {
       var badges = el['time-selector-computer'].querySelectorAll('.time-badge');
       badges.forEach(function (b) {
@@ -1773,7 +2161,6 @@
       });
     }
 
-    // Time selector buttons (Friend)
     if (el['time-selector-friend']) {
       var fBadges = el['time-selector-friend'].querySelectorAll('.time-badge');
       fBadges.forEach(function (b) {
@@ -1789,8 +2176,8 @@
     // Start single player vs Computer
     if (el['btn-start-computer']) {
       el['btn-start-computer'].addEventListener('click', function () {
-        var name = (el['player-name-input'] && el['player-name-input'].value) || 'Player';
-        playSound('start');
+        var name = (el['player-name-input'] && el['player-name-input'].value) || (currentUser ? currentUser.username : 'Player');
+        playSound('move');
 
         isSinglePlayer = true;
         isCasualMode = chosenTimeControl === 0;
@@ -1798,6 +2185,7 @@
         whiteClockSeconds = chosenTimeControl || 600;
         blackClockSeconds = chosenTimeControl || 600;
 
+        userInGame = true;
         chessClient.reset();
 
         apiPost('/api/single-player', {
@@ -1805,13 +2193,10 @@
           colour: chosenColor,
           name: name
         }).then(function (next) {
+          userInGame = true;
           adoptState(next);
           startClockTimer();
-
-          // If playing as black, trigger bot opening move!
-          if (chosenColor === 'black') {
-            triggerClientBotMove();
-          }
+          showToast('Game started vs Computer (' + chosenLevel.toUpperCase() + ') — 4s Pacing');
         });
       });
     }
@@ -1819,8 +2204,8 @@
     // Host room
     if (el['btn-host-room']) {
       el['btn-host-room'].addEventListener('click', function () {
-        var name = (el['player-name-input'] && el['player-name-input'].value) || 'Player';
-        playSound('start');
+        var name = (el['player-name-input'] && el['player-name-input'].value) || (currentUser ? currentUser.username : 'Player');
+        playSound('move');
 
         isSinglePlayer = false;
         isCasualMode = chosenFriendTimeControl === 0;
@@ -1828,13 +2213,16 @@
         whiteClockSeconds = chosenFriendTimeControl || 600;
         blackClockSeconds = chosenFriendTimeControl || 600;
 
+        userInGame = true;
         chessClient.reset();
 
         apiPost('/api/host', { name: name }).then(function (next) {
+          userInGame = true;
           adoptState(next);
           startClockTimer();
           showConnectModal(next.roomCode);
         }).catch(function (err) {
+          userInGame = false;
           showToast('Failed to create room: ' + err.message);
         });
       });
@@ -1843,213 +2231,56 @@
     // Join room
     if (el['btn-join-room']) {
       el['btn-join-room'].addEventListener('click', function () {
-        var code = el['input-room-code'] ? el['input-room-code'].value.trim() : '';
-        var name = (el['player-name-input'] && el['player-name-input'].value) || 'Guest';
-        if (!code || code.length !== 4) {
-          showToast('Please enter the 4-digit room code');
-          playSound('illegal');
+        var code = (el['input-room-code'] && el['input-room-code'].value || '').trim();
+        var name = (el['player-name-input'] && el['player-name-input'].value) || (currentUser ? currentUser.username : 'Player');
+        if (!/^\d{4}$/.test(code)) {
+          showToast('Room PIN must be a 4-digit number.');
           return;
         }
-
-        playSound('start');
-        isSinglePlayer = false;
-        isCasualMode = chosenFriendTimeControl === 0;
-        casualElapsedSeconds = 0;
-        whiteClockSeconds = chosenFriendTimeControl || 600;
-        blackClockSeconds = chosenFriendTimeControl || 600;
-
-        chessClient.reset();
 
         apiPost('/api/join', { code: code, name: name }).then(function (next) {
           if (next.error) {
             showToast(next.error);
-            playSound('illegal');
             return;
           }
+          userInGame = true;
+          isSinglePlayer = false;
           adoptState(next);
           startClockTimer();
-          showToast('🎉 Connected to Room #' + code + '!');
+          showToast('🎉 Joined Room #' + code);
         }).catch(function (err) {
-          showToast(err.message || 'Room not found');
-          playSound('illegal');
+          showToast(err.message);
         });
       });
     }
 
-    // Connect Phone button (In game)
-    if (el['btn-connect-phone-game']) {
-      el['btn-connect-phone-game'].addEventListener('click', function () {
-        if (state && state.roomCode) {
-          showConnectModal(state.roomCode);
-        } else {
-          apiPost('/api/host', { name: 'Player' }).then(function (next) {
-            adoptState(next);
-            showConnectModal(next.roomCode);
-          });
-        }
-      });
-    }
-
-    // Close Connect Modal
-    if (el['btn-close-connect']) {
-      el['btn-close-connect'].addEventListener('click', function () {
-        if (el['modal-device-connect']) el['modal-device-connect'].hidden = true;
-      });
-    }
-
-    if (el['btn-modal-copy-link']) {
-      el['btn-modal-copy-link'].addEventListener('click', function () {
-        if (el['input-share-link']) {
-          copyToClipboard(el['input-share-link'].value, '📋 Invite link copied to clipboard!');
-          playSound('move');
-        }
-      });
-    }
-
-    if (el['btn-modal-copy-pin']) {
-      el['btn-modal-copy-pin'].addEventListener('click', function () {
-        if (el['modal-display-pin']) {
-          copyToClipboard(el['modal-display-pin'].textContent, '📋 Room PIN copied!');
-          playSound('move');
-        }
-      });
-    }
-
-    // WhatsApp Share
-    if (el['btn-share-whatsapp']) {
-      el['btn-share-whatsapp'].addEventListener('click', function () {
-        var url = el['input-share-link'] ? el['input-share-link'].value : window.location.href;
-        var text = encodeURIComponent('Play chess with me in real time! Click to join: ' + url);
-        window.open('https://api.whatsapp.com/send?text=' + text, '_blank');
-      });
-    }
-
-    // Email Share
-    if (el['btn-share-email']) {
-      el['btn-share-email'].addEventListener('click', function () {
-        var url = el['input-share-link'] ? el['input-share-link'].value : window.location.href;
-        var subject = encodeURIComponent('Chess Arena - Game Invite');
-        var body = encodeURIComponent('Join my live chess match here: ' + url);
-        window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
-      });
-    }
-
-    // ↩️ Undo (Takeback) Move
+    // Undo (Takeback vs computer)
     if (el['btn-action-undo']) {
       el['btn-action-undo'].addEventListener('click', function () {
-        if (isSinglePlayer) {
-          var humanIsTurn = (chessClient.turn() === 'w' && state.localSide === 'white') || (chessClient.turn() === 'b' && state.localSide === 'black');
-          if (humanIsTurn) {
-            chessClient.undo(); // Undo bot move
-            chessClient.undo(); // Undo human move
-          } else {
-            chessClient.undo();
-          }
-
-          var hist = chessClient.history({ verbose: true });
-          if (hist.length > 0) {
-            var lastM = hist[hist.length - 1];
-            state.lastMove = { from: squareToIndex(lastM.from), to: squareToIndex(lastM.to) };
-          } else {
-            state.lastMove = null;
-          }
-
-          selectedSquare = -1;
-          legalTargets = [];
-          hintSquares = [];
-
-          renderPieces();
-          renderHighlights();
-          updateNotationTable();
-          updateCapturedPieces();
-          updateEvaluation();
-          playSound('move');
-          showToast('↩️ Move taken back');
-
-          apiPost('/api/undo').catch(function () {});
+        if (!isSinglePlayer) {
+          showToast('Takeback is only available against the computer.');
+          return;
         }
-      });
-    }
-
-    // 💡 Engine Hint
-    if (el['btn-action-hint']) {
-      el['btn-action-hint'].addEventListener('click', function () {
-        var best = findBestMoveClient(chessClient, 'hard');
-        if (best) {
-          hintSquares = [squareToIndex(best.from), squareToIndex(best.to)];
-          renderHighlights();
-          playSound('pop');
-          showToast('💡 Engine suggestion: ' + best.san + ' (' + best.from + ' → ' + best.to + ')');
-        }
-      });
-    }
-
-    // 📋 Copy PGN
-    if (el['btn-copy-pgn']) {
-      el['btn-copy-pgn'].addEventListener('click', function () {
-        var pgnText = chessClient.pgn() || chessClient.history().join(' ');
-        copyToClipboard(pgnText, '📋 PGN copied to clipboard!');
-        playSound('move');
-      });
-    }
-
-    // 📋 Copy FEN
-    if (el['btn-copy-fen']) {
-      el['btn-copy-fen'].addEventListener('click', function () {
-        copyToClipboard(chessClient.fen(), '📋 FEN copied to clipboard!');
-        playSound('move');
-      });
-    }
-
-    // Level selector
-    if (el['level-selector']) {
-      var cards = el['level-selector'].querySelectorAll('.level-card');
-      cards.forEach(function (card) {
-        card.addEventListener('click', function () {
-          cards.forEach(function (c) {
-            c.classList.remove('is-active');
-            c.setAttribute('aria-checked', 'false');
-          });
-          card.classList.add('is-active');
-          card.setAttribute('aria-checked', 'true');
-          chosenLevel = card.dataset.level;
+        apiPost('/api/undo').then(function (next) {
+          adoptState(next);
+          showToast('↩️ Move taken back.');
           playSound('move');
         });
       });
     }
 
-    // Color options
-    var colorBtns = document.querySelectorAll('.color-option');
-    colorBtns.forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        colorBtns.forEach(function (b) { b.classList.remove('is-active'); });
-        btn.classList.add('is-active');
-        chosenColor = btn.dataset.color;
-        playSound('move');
-      });
-    });
-
-    // Sound toggle
-    if (el['btn-sound-toggle']) {
-      el['btn-sound-toggle'].addEventListener('click', function () {
-        soundEnabled = !soundEnabled;
-        settings.sound = soundEnabled;
-        if (el['sound-icon-state']) el['sound-icon-state'].textContent = soundEnabled ? '🔊' : '🔇';
-        if (soundEnabled) playSound('move');
-        showToast(soundEnabled ? 'Sound Enabled' : 'Sound Muted');
-      });
-    }
-
-    // Theme picker
-    if (el['header-theme-picker']) {
-      var swatches = el['header-theme-picker'].querySelectorAll('.theme-swatch');
-      swatches.forEach(function (swatch) {
-        swatch.addEventListener('click', function () {
-          var theme = swatch.dataset.theme;
-          document.documentElement.dataset.theme = theme;
-          swatches.forEach(function (s) { s.classList.remove('is-active'); });
-          swatch.classList.add('is-active');
-          showToast('Theme: ' + swatch.title);
+    // Hint
+    if (el['btn-action-hint']) {
+      el['btn-action-hint'].addEventListener('click', function () {
+        apiGet('/api/hint').then(function (res) {
+          if (res && res.hint) {
+            hintSquares = [res.hint.fromIdx, res.hint.toIdx];
+            renderHighlights();
+            showToast('💡 Engine suggestion: ' + res.hint.san);
+            playSound('move');
+          } else {
+            showToast('No hint available.');
+          }
         });
       });
     }
@@ -2061,18 +2292,32 @@
         buildGrid();
         renderPieces();
         renderHighlights();
-        updateEvaluation();
         playSound('move');
       });
     }
 
-    // Reactions
-    if (el['reactions-dock']) {
-      var reactionBtns = el['reactions-dock'].querySelectorAll('.emoji-btn');
-      reactionBtns.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-          sendReaction(btn.dataset.emoji);
-        });
+    // Connect phone
+    if (el['btn-connect-phone-game']) {
+      el['btn-connect-phone-game'].addEventListener('click', function () {
+        if (state && state.roomCode) {
+          showConnectModal(state.roomCode);
+        } else {
+          showToast('Host a multiplayer room to connect devices.');
+        }
+      });
+    }
+
+    // Copy PGN & FEN
+    if (el['btn-copy-pgn']) {
+      el['btn-copy-pgn'].addEventListener('click', function () {
+        var pgn = chessClient.pgn() || chessClient.history().join(' ');
+        copyToClipboard(pgn, '📋 PGN copied to clipboard!');
+      });
+    }
+
+    if (el['btn-copy-fen']) {
+      el['btn-copy-fen'].addEventListener('click', function () {
+        copyToClipboard(chessClient.fen(), '📋 FEN copied to clipboard!');
       });
     }
 
@@ -2086,18 +2331,10 @@
     if (el['btn-confirm-resign']) {
       el['btn-confirm-resign'].addEventListener('click', function () {
         if (el['modal-resign-confirm']) el['modal-resign-confirm'].hidden = true;
-        if (clockTimer) clearInterval(clockTimer);
-        state.finished = true;
-        state.gameOver = true;
-        state.localWon = false;
-        state.gameOverHeadline = 'You Resigned';
-        state.gameOverDetail = 'Match conceded to opponent.';
-        playSound('loss');
-        if (el['modal-gameover']) el['modal-gameover'].hidden = false;
-        if (el['gameover-title']) el['gameover-title'].textContent = 'You Resigned';
-        if (el['gameover-detail']) el['gameover-detail'].textContent = 'Match conceded.';
-        if (el['gameover-crown']) el['gameover-crown'].textContent = '⚔️';
-        apiPost('/api/resign').catch(function () {});
+        apiPost('/api/resign').then(function (next) {
+          adoptState(next);
+          checkAndHandleGameOver();
+        });
       });
     }
 
@@ -2108,45 +2345,88 @@
     }
 
     // Rematch
-    function handleRematch() {
+    function triggerRematch() {
       if (el['modal-gameover']) el['modal-gameover'].hidden = true;
-      whiteClockSeconds = chosenTimeControl || 600;
-      blackClockSeconds = chosenTimeControl || 600;
-      playSound('start');
-
-      chessClient.reset();
-
+      showToast('Starting Rematch...');
       apiPost('/api/rematch').then(function (next) {
+        userInGame = true;
+        chessClient.reset();
         adoptState(next);
         startClockTimer();
-        if (isSinglePlayer && next.localSide === 'black') {
-          triggerClientBotMove();
-        }
       });
     }
 
-    if (el['btn-action-rematch']) el['btn-action-rematch'].addEventListener('click', handleRematch);
-    if (el['btn-modal-rematch']) el['btn-modal-rematch'].addEventListener('click', handleRematch);
+    if (el['btn-action-rematch']) el['btn-action-rematch'].addEventListener('click', triggerRematch);
+    if (el['btn-modal-rematch']) el['btn-modal-rematch'].addEventListener('click', triggerRematch);
 
     // Return to menu
-    function handleReturnMenu() {
+    function returnToMenu() {
       if (el['modal-gameover']) el['modal-gameover'].hidden = true;
-      if (clockTimer) clearInterval(clockTimer);
-      apiPost('/api/leave').then(adoptState);
+      apiPost('/api/leave').then(function (next) {
+        userInGame = false;
+        adoptState(next);
+      });
     }
 
-    if (el['btn-action-menu']) el['btn-action-menu'].addEventListener('click', handleReturnMenu);
-    if (el['btn-modal-menu']) el['btn-modal-menu'].addEventListener('click', handleReturnMenu);
-    if (el['btn-brand']) el['btn-brand'].addEventListener('click', handleReturnMenu);
+    if (el['btn-action-menu']) el['btn-action-menu'].addEventListener('click', returnToMenu);
+    if (el['btn-modal-menu']) el['btn-modal-menu'].addEventListener('click', returnToMenu);
+    if (el['btn-brand']) {
+      el['btn-brand'].addEventListener('click', function (e) {
+        e.preventDefault();
+        returnToMenu();
+      });
+    }
 
-    // Navigation in header
+    // Move Review Stepper
+    function updateReviewState(plyIndex) {
+      var hist = chessClient.history({ verbose: true });
+      if (hist.length === 0) return;
+
+      plyIndex = Math.max(0, Math.min(hist.length, plyIndex));
+      reviewPly = plyIndex;
+
+      var tempChess = new ChessEngine();
+      for (var i = 0; i < reviewPly; i++) {
+        tempChess.move(hist[i]);
+      }
+
+      var b = tempChess.board();
+      var prefix = getPieceSvgPrefix();
+
+      if (el.pieces) {
+        el.pieces.textContent = '';
+        for (var r = 0; r < 8; r++) {
+          for (var c = 0; c < 8; c++) {
+            var piece = b[r][c];
+            if (!piece) continue;
+            var sqIdx = r * 8 + c;
+            var pieceEl = document.createElement('div');
+            pieceEl.className = 'piece';
+            var pos = getSquarePos(sqIdx);
+            pieceEl.style.transform = 'translate3d(' + pos.x + 'px,' + pos.y + 'px,0)';
+            var pCode = piece.color + (piece.type === 'n' ? 'n' : piece.type);
+            pieceEl.innerHTML = '<svg viewBox="0 0 45 45"><use href="' + prefix + pCode + '"/></svg>';
+            el.pieces.appendChild(pieceEl);
+          }
+        }
+      }
+
+      if (reviewPly === hist.length) {
+        renderPieces();
+        renderHighlights();
+      }
+    }
+
+    if (el['btn-step-start']) el['btn-step-start'].addEventListener('click', function () { updateReviewState(0); playSound('move'); });
+    if (el['btn-step-prev']) el['btn-step-prev'].addEventListener('click', function () { updateReviewState((reviewPly >= 0 ? reviewPly : chessClient.history().length) - 1); playSound('move'); });
+    if (el['btn-step-next']) el['btn-step-next'].addEventListener('click', function () { updateReviewState((reviewPly >= 0 ? reviewPly : chessClient.history().length) + 1); playSound('move'); });
+    if (el['btn-step-end']) el['btn-step-end'].addEventListener('click', function () { reviewPly = -1; renderPieces(); renderHighlights(); playSound('move'); });
+
+    // Header nav links
     if (el['nav-btn-computer']) {
       el['nav-btn-computer'].addEventListener('click', function () {
         el['nav-btn-computer'].classList.add('is-active');
         if (el['nav-btn-friend']) el['nav-btn-friend'].classList.remove('is-active');
-        if (state && state.screen === 'game') {
-          apiPost('/api/leave').then(adoptState);
-        }
         var compCard = document.querySelector('.card-computer');
         if (compCard) compCard.scrollIntoView({ behavior: 'smooth' });
       });
@@ -2156,41 +2436,96 @@
       el['nav-btn-friend'].addEventListener('click', function () {
         el['nav-btn-friend'].classList.add('is-active');
         if (el['nav-btn-computer']) el['nav-btn-computer'].classList.remove('is-active');
-        if (state && state.screen === 'game' && state.roomCode) {
-          showConnectModal(state.roomCode);
-          return;
-        }
         var friendCard = document.querySelector('.card-friend');
-        if (friendCard) {
-          friendCard.scrollIntoView({ behavior: 'smooth' });
-          var hostBtn = document.getElementById('btn-host-room');
-          if (hostBtn) hostBtn.focus();
-        }
+        if (friendCard) friendCard.scrollIntoView({ behavior: 'smooth' });
       });
     }
 
-    // Settings
+    // Settings Modal
     if (el['btn-settings-open']) {
       el['btn-settings-open'].addEventListener('click', function () {
         if (el['modal-settings']) el['modal-settings'].hidden = false;
       });
     }
-
     if (el['btn-settings-close']) {
       el['btn-settings-close'].addEventListener('click', function () {
         if (el['modal-settings']) el['modal-settings'].hidden = true;
       });
     }
-
     if (el['btn-settings-done']) {
       el['btn-settings-done'].addEventListener('click', function () {
         if (el['modal-settings']) el['modal-settings'].hidden = true;
       });
     }
+
+    // Sound toggle in header
+    if (el['btn-sound-toggle']) {
+      el['btn-sound-toggle'].addEventListener('click', function () {
+        soundEnabled = !soundEnabled;
+        if (el['sound-icon-state']) el['sound-icon-state'].innerHTML = soundEnabled ? '&#128266;' : '&#128263;';
+        showToast(soundEnabled ? 'Audio enabled' : 'Audio muted');
+      });
+    }
+
+    // Modal close for device connect
+    if (el['btn-close-connect']) {
+      el['btn-close-connect'].addEventListener('click', function () {
+        if (el['modal-device-connect']) el['modal-device-connect'].hidden = true;
+      });
+    }
+
+    // Copy direct invite link
+    if (el['btn-copy-link']) {
+      el['btn-copy-link'].addEventListener('click', function () {
+        if (state && state.roomCode) {
+          var url = window.location.origin + '/?room=' + state.roomCode;
+          copyToClipboard(url, '📋 Room invite link copied!');
+        }
+      });
+    }
+    if (el['btn-copy-code']) {
+      el['btn-copy-code'].addEventListener('click', function () {
+        if (state && state.roomCode) {
+          copyToClipboard(state.roomCode, '📋 4-digit PIN copied: ' + state.roomCode);
+        }
+      });
+    }
+
+    // Settings toggles
+    if (el['setting-sound-toggle']) {
+      el['setting-sound-toggle'].addEventListener('change', function (e) {
+        settings.sound = e.target.checked;
+        soundEnabled = e.target.checked;
+      });
+    }
+    if (el['setting-hints-toggle']) {
+      el['setting-hints-toggle'].addEventListener('change', function (e) {
+        settings.hints = e.target.checked;
+        renderHighlights();
+      });
+    }
+    if (el['setting-lastmove-toggle']) {
+      el['setting-lastmove-toggle'].addEventListener('change', function (e) {
+        settings.lastMove = e.target.checked;
+        renderHighlights();
+      });
+    }
+    if (el['setting-coords-toggle']) {
+      el['setting-coords-toggle'].addEventListener('change', function (e) {
+        settings.coords = e.target.checked;
+        buildGrid();
+      });
+    }
+    if (el['setting-movements-toggle']) {
+      el['setting-movements-toggle'].checked = settings.movementsLayout === 'left';
+      el['setting-movements-toggle'].addEventListener('change', function (e) {
+        applyMovementsLayout(e.target.checked ? 'left' : 'right');
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
-  // 21. Auto-Join URL Parameter (?room=XXXX)
+  // 24. URL Room Auto-Join
   // ---------------------------------------------------------------------------
   function checkUrlRoom() {
     var params = new URLSearchParams(window.location.search);
@@ -2198,28 +2533,41 @@
     if (roomCode && /^\d{4}$/.test(roomCode)) {
       if (el['input-room-code']) el['input-room-code'].value = roomCode;
       showToast('Connecting to Room #' + roomCode + '...');
-      apiPost('/api/join', { code: roomCode, name: 'Guest' }).then(function (next) {
+      apiPost('/api/join', { code: roomCode, name: currentUser ? currentUser.username : 'Guest' }).then(function (next) {
         if (next.error) {
           showToast(next.error);
           return;
         }
         adoptState(next);
         startClockTimer();
-        showToast('🎉 Joined Room #' + roomCode + ' as Black!');
+        showToast('🎉 Joined Room #' + roomCode);
       }).catch(function () {});
     }
   }
 
   // ---------------------------------------------------------------------------
-  // 22. Initialization
+  // 25. Initialization
   // ---------------------------------------------------------------------------
   function init() {
     initElements();
+    applyTheme(settings.theme);
+    applyPieceStyle(settings.pieceStyle);
+    applyMovementsLayout(settings.movementsLayout);
     setupEvents();
     buildGrid();
     computeLayout();
     initSSE();
     fetchState();
+    fetchNotifications();
+
+    // Fetch Auth Profile
+    apiGet('/api/auth/me').then(function (res) {
+      if (res && res.user) {
+        currentUser = res.user;
+        updateUserHeaderBadge();
+      }
+    }).catch(function () {});
+
     checkUrlRoom();
   }
 
