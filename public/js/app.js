@@ -31,10 +31,17 @@
 
   // Settings
   var settings = {
-    sound: true,
-    hints: true,
-    lastMove: true,
-    coords: true,
+    sound: localStorage.getItem('chess_sound') !== 'false',
+    soundPack: localStorage.getItem('chess_sound_pack') || 'tournament',
+    hints: localStorage.getItem('chess_hints') !== 'false',
+    lastMove: localStorage.getItem('chess_lastmove') !== 'false',
+    coords: localStorage.getItem('chess_coords') !== 'false',
+    evalBar: localStorage.getItem('chess_eval_bar') !== 'false',
+    kingAlert: localStorage.getItem('chess_king_alert') !== 'false',
+    animations: localStorage.getItem('chess_animations') !== 'false',
+    autoQueen: localStorage.getItem('chess_auto_queen') === 'true',
+    materialShelf: localStorage.getItem('chess_material_shelf') !== 'false',
+    autoFlip: localStorage.getItem('chess_auto_flip') === 'true',
     pieceStyle: localStorage.getItem('chess_piece_style') || 'staunton',
     movementsLayout: localStorage.getItem('chess_movements_layout') || 'left',
     theme: localStorage.getItem('chess_theme') || 'tournament'
@@ -144,7 +151,9 @@
       'btn-modal-rematch', 'btn-modal-menu',
       'modal-resign-confirm', 'btn-confirm-resign', 'btn-cancel-resign',
       'modal-settings', 'btn-settings-close', 'btn-settings-done',
+      'setting-theme-select', 'setting-pieces-select', 'setting-soundpack-select',
       'setting-sound-toggle', 'setting-hints-toggle', 'setting-lastmove-toggle', 'setting-coords-toggle', 'setting-movements-toggle',
+      'setting-eval-toggle', 'setting-king-alert-toggle', 'setting-animation-toggle', 'setting-auto-queen-toggle', 'setting-material-toggle', 'setting-autoflip-toggle',
       'toast-pill', 'toast-message'
     ].forEach(function (id) {
       el[id] = $(id);
@@ -290,59 +299,115 @@
 
     switch (type) {
       case 'move': {
+        var mPack = settings.soundPack || 'tournament';
         var osc = ctx.createOscillator();
         var gain = ctx.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.07);
-        gain.gain.setValueAtTime(0.5, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+        if (mPack === 'wood') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(180, now);
+          osc.frequency.exponentialRampToValueAtTime(70, now + 0.08);
+          gain.gain.setValueAtTime(0.65, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.085);
+        } else if (mPack === 'modern') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.06);
+          gain.gain.setValueAtTime(0.45, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.065);
+        } else {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(80, now + 0.07);
+          gain.gain.setValueAtTime(0.5, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.075);
+        }
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start(now);
-        osc.stop(now + 0.08);
+        osc.stop(now + 0.09);
         break;
       }
       case 'capture': {
-        // High-end tactile coin/piece hit sound
-        // 1. Transient strike / contact click
-        var clickOsc = ctx.createOscillator();
-        var clickGain = ctx.createGain();
-        clickOsc.type = 'triangle';
-        clickOsc.frequency.setValueAtTime(1400, now);
-        clickOsc.frequency.exponentialRampToValueAtTime(300, now + 0.025);
-        clickGain.gain.setValueAtTime(0.75, now);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-        clickOsc.connect(clickGain);
-        clickGain.connect(ctx.destination);
-        clickOsc.start(now);
-        clickOsc.stop(now + 0.035);
+        var cPack = settings.soundPack || 'tournament';
+        if (cPack === 'wood') {
+          // Warm resonant hardwood block hit
+          var wOsc = ctx.createOscillator();
+          var wGain = ctx.createGain();
+          wOsc.type = 'triangle';
+          wOsc.frequency.setValueAtTime(340, now);
+          wOsc.frequency.exponentialRampToValueAtTime(75, now + 0.11);
+          wGain.gain.setValueAtTime(0.95, now);
+          wGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+          wOsc.connect(wGain);
+          wGain.connect(ctx.destination);
+          wOsc.start(now);
+          wOsc.stop(now + 0.13);
 
-        // 2. Resonant solid wood / coin impact body (deep tactile thud)
-        var bodyOsc = ctx.createOscillator();
-        var bodyGain = ctx.createGain();
-        bodyOsc.type = 'sine';
-        bodyOsc.frequency.setValueAtTime(440, now);
-        bodyOsc.frequency.exponentialRampToValueAtTime(110, now + 0.09);
-        bodyGain.gain.setValueAtTime(0.9, now);
-        bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
-        bodyOsc.connect(bodyGain);
-        bodyGain.connect(ctx.destination);
-        bodyOsc.start(now);
-        bodyOsc.stop(now + 0.12);
+          var wSub = ctx.createOscillator();
+          var wSubGain = ctx.createGain();
+          wSub.type = 'sine';
+          wSub.frequency.setValueAtTime(150, now);
+          wSub.frequency.exponentialRampToValueAtTime(50, now + 0.09);
+          wSubGain.gain.setValueAtTime(0.7, now);
+          wSubGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+          wSub.connect(wSubGain);
+          wSubGain.connect(ctx.destination);
+          wSub.start(now);
+          wSub.stop(now + 0.11);
+        } else if (cPack === 'modern') {
+          // Resonant coin/chime strike
+          var mOsc = ctx.createOscillator();
+          var mGain = ctx.createGain();
+          mOsc.type = 'sine';
+          mOsc.frequency.setValueAtTime(1760, now);
+          mOsc.frequency.exponentialRampToValueAtTime(880, now + 0.18);
+          mGain.gain.setValueAtTime(0.65, now);
+          mGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+          mOsc.connect(mGain);
+          mGain.connect(ctx.destination);
+          mOsc.start(now);
+          mOsc.stop(now + 0.22);
+        } else {
+          // High-end tactile coin/piece hit sound
+          // 1. Transient strike / contact click
+          var clickOsc = ctx.createOscillator();
+          var clickGain = ctx.createGain();
+          clickOsc.type = 'triangle';
+          clickOsc.frequency.setValueAtTime(1400, now);
+          clickOsc.frequency.exponentialRampToValueAtTime(300, now + 0.025);
+          clickGain.gain.setValueAtTime(0.75, now);
+          clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+          clickOsc.connect(clickGain);
+          clickGain.connect(ctx.destination);
+          clickOsc.start(now);
+          clickOsc.stop(now + 0.035);
 
-        // 3. Metallic ring chime harmonic (for coins and weighted tokens being hit)
-        var ringOsc = ctx.createOscillator();
-        var ringGain = ctx.createGain();
-        ringOsc.type = 'sine';
-        ringOsc.frequency.setValueAtTime(2200, now);
-        ringOsc.frequency.exponentialRampToValueAtTime(1100, now + 0.14);
-        ringGain.gain.setValueAtTime(0.25, now);
-        ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        ringOsc.connect(ringGain);
-        ringGain.connect(ctx.destination);
-        ringOsc.start(now);
-        ringOsc.stop(now + 0.16);
+          // 2. Resonant solid wood / coin impact body (deep tactile thud)
+          var bodyOsc = ctx.createOscillator();
+          var bodyGain = ctx.createGain();
+          bodyOsc.type = 'sine';
+          bodyOsc.frequency.setValueAtTime(440, now);
+          bodyOsc.frequency.exponentialRampToValueAtTime(110, now + 0.09);
+          bodyGain.gain.setValueAtTime(0.9, now);
+          bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+          bodyOsc.connect(bodyGain);
+          bodyGain.connect(ctx.destination);
+          bodyOsc.start(now);
+          bodyOsc.stop(now + 0.12);
+
+          // 3. Metallic ring chime harmonic (for coins and weighted tokens being hit)
+          var ringOsc = ctx.createOscillator();
+          var ringGain = ctx.createGain();
+          ringOsc.type = 'sine';
+          ringOsc.frequency.setValueAtTime(2200, now);
+          ringOsc.frequency.exponentialRampToValueAtTime(1100, now + 0.14);
+          ringGain.gain.setValueAtTime(0.25, now);
+          ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+          ringOsc.connect(ringGain);
+          ringGain.connect(ctx.destination);
+          ringOsc.start(now);
+          ringOsc.stop(now + 0.16);
+        }
         break;
       }
       case 'check': {
@@ -490,18 +555,36 @@
   // ---------------------------------------------------------------------------
   function computeLayout() {
     if (!el.board) return;
-    var container = el['board-frame'];
-    var viewport = container ? container.parentElement : null;
-    if (!viewport) return;
+    var boardCol = el['board-column'];
+    if (!boardCol) return;
 
-    var availW = viewport.clientWidth - 32;
-    var availH = viewport.clientHeight - 8;
-    if (availW < 120 || availH < 120) return;
+    var colW = boardCol.clientWidth;
+    var colH = boardCol.clientHeight;
 
-    var maxAllowed = 700;
+    // Fallbacks if layout not yet rendered or hidden
+    if (!colW || colW < 200) {
+      colW = Math.max(300, window.innerWidth - (window.innerWidth > 960 ? 370 : 32));
+    }
+    if (!colH || colH < 200) {
+      colH = Math.max(300, window.innerHeight - 150);
+    }
+
+    var availW = colW - (settings.evalBar ? 42 : 16);
+
+    var oppHudH = el['hud-opponent'] ? el['hud-opponent'].offsetHeight : 48;
+    var youHudH = el['hud-you'] ? el['hud-you'].offsetHeight : 48;
+    var bannerH = (el['king-danger-banner'] && !el['king-danger-banner'].hidden) ? el['king-danger-banner'].offsetHeight : 0;
+    var totalHudH = (oppHudH || 48) + (youHudH || 48) + bannerH + 28;
+
+    var availH = colH - totalHudH;
+
+    var maxAllowed = 704;
+    var minAllowed = 264;
+
     var size = Math.floor(Math.min(availW, availH, maxAllowed));
-    if (size < 260) size = 260;
+    if (size < minAllowed) size = minAllowed;
 
+    // Crisp multiples of 8
     size = Math.floor(size / 8) * 8;
     var sizeChanged = (size !== boardSize);
     boardSize = size;
@@ -512,6 +595,7 @@
 
     if (el['eval-bar']) {
       el['eval-bar'].style.height = size + 'px';
+      el['eval-bar'].style.display = settings.evalBar ? '' : 'none';
     }
 
     if (sizeChanged) {
@@ -996,6 +1080,10 @@
     if (piece.type === 'p') {
       var destRank = toSq.charAt(1);
       if ((piece.color === 'w' && destRank === '8') || (piece.color === 'b' && destRank === '1')) {
+        if (settings.autoQueen) {
+          executeMove(fromIdx, toIdx, 'queen');
+          return;
+        }
         pendingPromotion = { from: fromIdx, to: toIdx };
         showPromotionDialog(piece.color === 'w' ? 'white' : 'black');
         return;
@@ -1466,11 +1554,15 @@
       }
     }
 
-    if (next.screen === 'home') {
-      if (!userInGame) {
-        if (el['screen-home']) el['screen-home'].hidden = false;
-        if (el['screen-game']) el['screen-game'].hidden = true;
-      }
+    if (next.screen === 'home' || next.mode === 'idle') {
+      userInGame = false;
+      if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+      if (botCountdownInterval) { clearInterval(botCountdownInterval); botCountdownInterval = null; }
+      isBotThinking = false;
+      if (el['modal-gameover']) el['modal-gameover'].hidden = true;
+      if (el['modal-resign-confirm']) el['modal-resign-confirm'].hidden = true;
+      if (el['screen-home']) el['screen-home'].hidden = false;
+      if (el['screen-game']) el['screen-game'].hidden = true;
     } else {
       userInGame = true;
       if (el['screen-home']) el['screen-home'].hidden = true;
@@ -1485,7 +1577,11 @@
       if (!isBotThinking) startBotThinkingTimer(4.0);
     }
 
-    flipped = next.localSide === 'black';
+    if (settings.autoFlip && !isSinglePlayer) {
+      flipped = chessClient.turn() === 'b';
+    } else {
+      flipped = next.localSide === 'black';
+    }
     buildGrid();
 
     if (el['you-name']) el['you-name'].textContent = (currentUser ? currentUser.username : next.localName) || 'You';
@@ -2462,10 +2558,22 @@
 
     // Return to menu
     function returnToMenu() {
+      userInGame = false;
+      if (clockTimer) { clearInterval(clockTimer); clockTimer = null; }
+      if (botCountdownInterval) { clearInterval(botCountdownInterval); botCountdownInterval = null; }
+      isBotThinking = false;
+      reviewPly = -1;
       if (el['modal-gameover']) el['modal-gameover'].hidden = true;
+      if (el['modal-resign-confirm']) el['modal-resign-confirm'].hidden = true;
+      if (el['screen-game']) el['screen-game'].hidden = true;
+      if (el['screen-home']) el['screen-home'].hidden = false;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
       apiPost('/api/leave').then(function (next) {
         userInGame = false;
         adoptState(next);
+      }).catch(function () {
+        userInGame = false;
       });
     }
 
@@ -2592,35 +2700,117 @@
       });
     }
 
-    // Settings toggles
+    // Settings event listeners
+    if (el['setting-theme-select']) {
+      el['setting-theme-select'].addEventListener('change', function (e) {
+        applyTheme(e.target.value);
+        showToast('Board theme: ' + e.target.value);
+      });
+    }
+
+    if (el['setting-pieces-select']) {
+      el['setting-pieces-select'].addEventListener('change', function (e) {
+        applyPieceStyle(e.target.value);
+        renderPieces(true);
+        showToast('Piece style: ' + e.target.value);
+      });
+    }
+
+    if (el['setting-soundpack-select']) {
+      el['setting-soundpack-select'].addEventListener('change', function (e) {
+        settings.soundPack = e.target.value;
+        try { localStorage.setItem('chess_sound_pack', e.target.value); } catch {}
+        playSound('capture');
+        showToast('Hit audio pack updated');
+      });
+    }
+
     if (el['setting-sound-toggle']) {
       el['setting-sound-toggle'].addEventListener('change', function (e) {
         settings.sound = e.target.checked;
         soundEnabled = e.target.checked;
+        try { localStorage.setItem('chess_sound', String(e.target.checked)); } catch {}
+        if (el['sound-icon-state']) el['sound-icon-state'].innerHTML = soundEnabled ? '&#128266;' : '&#128263;';
       });
     }
+
     if (el['setting-hints-toggle']) {
       el['setting-hints-toggle'].addEventListener('change', function (e) {
         settings.hints = e.target.checked;
+        try { localStorage.setItem('chess_hints', String(e.target.checked)); } catch {}
         renderHighlights();
       });
     }
+
     if (el['setting-lastmove-toggle']) {
       el['setting-lastmove-toggle'].addEventListener('change', function (e) {
         settings.lastMove = e.target.checked;
+        try { localStorage.setItem('chess_lastmove', String(e.target.checked)); } catch {}
         renderHighlights();
       });
     }
+
     if (el['setting-coords-toggle']) {
       el['setting-coords-toggle'].addEventListener('change', function (e) {
         settings.coords = e.target.checked;
+        try { localStorage.setItem('chess_coords', String(e.target.checked)); } catch {}
         buildGrid();
       });
     }
+
     if (el['setting-movements-toggle']) {
-      el['setting-movements-toggle'].checked = settings.movementsLayout === 'left';
       el['setting-movements-toggle'].addEventListener('change', function (e) {
         applyMovementsLayout(e.target.checked ? 'left' : 'right');
+      });
+    }
+
+    if (el['setting-eval-toggle']) {
+      el['setting-eval-toggle'].addEventListener('change', function (e) {
+        settings.evalBar = e.target.checked;
+        try { localStorage.setItem('chess_eval_bar', String(e.target.checked)); } catch {}
+        if (el['eval-bar']) el['eval-bar'].style.display = e.target.checked ? '' : 'none';
+        computeLayout();
+      });
+    }
+
+    if (el['setting-king-alert-toggle']) {
+      el['setting-king-alert-toggle'].addEventListener('change', function (e) {
+        settings.kingAlert = e.target.checked;
+        try { localStorage.setItem('chess_king_alert', String(e.target.checked)); } catch {}
+        if (!e.target.checked && el['king-danger-banner']) el['king-danger-banner'].hidden = true;
+        renderHighlights();
+        computeLayout();
+      });
+    }
+
+    if (el['setting-animation-toggle']) {
+      el['setting-animation-toggle'].addEventListener('change', function (e) {
+        settings.animations = e.target.checked;
+        try { localStorage.setItem('chess_animations', String(e.target.checked)); } catch {}
+        document.documentElement.dataset.noAnim = e.target.checked ? 'false' : 'true';
+      });
+    }
+
+    if (el['setting-auto-queen-toggle']) {
+      el['setting-auto-queen-toggle'].addEventListener('change', function (e) {
+        settings.autoQueen = e.target.checked;
+        try { localStorage.setItem('chess_auto_queen', String(e.target.checked)); } catch {}
+      });
+    }
+
+    if (el['setting-material-toggle']) {
+      el['setting-material-toggle'].addEventListener('change', function (e) {
+        settings.materialShelf = e.target.checked;
+        try { localStorage.setItem('chess_material_shelf', String(e.target.checked)); } catch {}
+        if (el['you-captured-shelf']) el['you-captured-shelf'].style.display = e.target.checked ? '' : 'none';
+        if (el['opp-captured-shelf']) el['opp-captured-shelf'].style.display = e.target.checked ? '' : 'none';
+      });
+    }
+
+    if (el['setting-autoflip-toggle']) {
+      el['setting-autoflip-toggle'].addEventListener('change', function (e) {
+        settings.autoFlip = e.target.checked;
+        try { localStorage.setItem('chess_auto_flip', String(e.target.checked)); } catch {}
       });
     }
   }
@@ -2646,11 +2836,34 @@
     }
   }
 
+  function syncSettingsUI() {
+    if (el['setting-theme-select']) el['setting-theme-select'].value = settings.theme;
+    if (el['setting-pieces-select']) el['setting-pieces-select'].value = settings.pieceStyle;
+    if (el['setting-soundpack-select']) el['setting-soundpack-select'].value = settings.soundPack;
+    if (el['setting-sound-toggle']) el['setting-sound-toggle'].checked = settings.sound;
+    if (el['setting-hints-toggle']) el['setting-hints-toggle'].checked = settings.hints;
+    if (el['setting-lastmove-toggle']) el['setting-lastmove-toggle'].checked = settings.lastMove;
+    if (el['setting-coords-toggle']) el['setting-coords-toggle'].checked = settings.coords;
+    if (el['setting-movements-toggle']) el['setting-movements-toggle'].checked = settings.movementsLayout === 'left';
+    if (el['setting-eval-toggle']) el['setting-eval-toggle'].checked = settings.evalBar;
+    if (el['setting-king-alert-toggle']) el['setting-king-alert-toggle'].checked = settings.kingAlert;
+    if (el['setting-animation-toggle']) el['setting-animation-toggle'].checked = settings.animations;
+    if (el['setting-auto-queen-toggle']) el['setting-auto-queen-toggle'].checked = settings.autoQueen;
+    if (el['setting-material-toggle']) el['setting-material-toggle'].checked = settings.materialShelf;
+    if (el['setting-autoflip-toggle']) el['setting-autoflip-toggle'].checked = settings.autoFlip;
+
+    if (el['eval-bar']) el['eval-bar'].style.display = settings.evalBar ? '' : 'none';
+    if (el['you-captured-shelf']) el['you-captured-shelf'].style.display = settings.materialShelf ? '' : 'none';
+    if (el['opp-captured-shelf']) el['opp-captured-shelf'].style.display = settings.materialShelf ? '' : 'none';
+    document.documentElement.dataset.noAnim = settings.animations ? 'false' : 'true';
+  }
+
   // ---------------------------------------------------------------------------
   // 25. Initialization
   // ---------------------------------------------------------------------------
   function init() {
     initElements();
+    syncSettingsUI();
     applyTheme(settings.theme);
     applyPieceStyle(settings.pieceStyle);
     applyMovementsLayout(settings.movementsLayout);

@@ -854,10 +854,13 @@ button {
 .board-viewport {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  height: 100%;
-  max-height: calc(100vh - 176px);
-  aspect-ratio: 1 / 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Evaluation Bar */
@@ -1063,6 +1066,9 @@ button {
   position: relative;
   width: var(--board-size);
   height: var(--board-size);
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  flex-shrink: 0;
   border-radius: 6px;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
 }
@@ -1662,10 +1668,14 @@ body.is-holding-piece * {
 
 /* Settings Card */
 .settings-card {
-  max-width: 440px;
+  max-width: 480px;
+  width: 95%;
+  max-height: 85vh;
   align-items: stretch;
   text-align: left;
   padding: 0;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -1675,6 +1685,7 @@ body.is-holding-piece * {
   justify-content: space-between;
   padding: 18px 22px;
   border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
 }
 
 .settings-title {
@@ -1695,17 +1706,43 @@ body.is-holding-piece * {
 }
 
 .settings-body {
-  padding: 14px 22px;
+  padding: 16px 22px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .setting-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
+  padding-bottom: 4px;
+}
+
+.setting-select {
+  padding: 7px 10px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-strong);
+  color: var(--text-main);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  max-width: 190px;
+  text-overflow: ellipsis;
+  transition: border-color var(--trans-fast);
+}
+
+.setting-select:focus {
+  border-color: var(--accent);
+}
+
+html[data-no-anim="true"] .piece {
+  transition: none !important;
 }
 
 .setting-label-block {

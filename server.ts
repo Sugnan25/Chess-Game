@@ -1605,24 +1605,8 @@ app.post('/api/move', (req: Request, res: Response) => {
   const toSq = indexToSquare(toIdx);
   const promo = promotion ? String(promotion).toLowerCase().charAt(0) : undefined;
 
-  // Auto-initialize if session was idle
   if (session.mode !== 'single_player' && (!session.roomCode || !rooms.has(session.roomCode))) {
-    session.mode = 'single_player';
-    const chess = new Chess();
-    session.singlePlayer = {
-      level: 'medium',
-      humanSide: 'white',
-      chess,
-      selected: -1,
-      lastMove: null,
-      moved: [],
-      thinking: false,
-      gameOver: false,
-      gameOverHeadline: '',
-      gameOverDetail: '',
-      localWon: false,
-      rematchOffered: false
-    };
+    return res.status(400).json({ error: 'No active game' });
   }
 
   if (session.mode === 'single_player' && session.singlePlayer) {
