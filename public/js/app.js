@@ -246,8 +246,8 @@
     { name: "Scandinavian Defense", moves: ["e4", "d5"] }
   ];
 
-  function detectOpeningName() {
-    var history = chessClient.history();
+  function detectOpeningName(customHistory) {
+    var history = customHistory || (state && state.history) || chessClient.history();
     if (!history || history.length === 0) return 'Standard Starting Position';
 
     for (var i = 0; i < OPENINGS.length; i++) {
@@ -304,17 +304,45 @@
         break;
       }
       case 'capture': {
-        var osc1 = ctx.createOscillator();
-        var gain1 = ctx.createGain();
-        osc1.type = 'sawtooth';
-        osc1.frequency.setValueAtTime(320, now);
-        osc1.frequency.exponentialRampToValueAtTime(45, now + 0.11);
-        gain1.gain.setValueAtTime(0.65, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.start(now);
-        osc1.stop(now + 0.125);
+        // High-end tactile coin/piece hit sound
+        // 1. Transient strike / contact click
+        var clickOsc = ctx.createOscillator();
+        var clickGain = ctx.createGain();
+        clickOsc.type = 'triangle';
+        clickOsc.frequency.setValueAtTime(1400, now);
+        clickOsc.frequency.exponentialRampToValueAtTime(300, now + 0.025);
+        clickGain.gain.setValueAtTime(0.75, now);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        clickOsc.connect(clickGain);
+        clickGain.connect(ctx.destination);
+        clickOsc.start(now);
+        clickOsc.stop(now + 0.035);
+
+        // 2. Resonant solid wood / coin impact body (deep tactile thud)
+        var bodyOsc = ctx.createOscillator();
+        var bodyGain = ctx.createGain();
+        bodyOsc.type = 'sine';
+        bodyOsc.frequency.setValueAtTime(440, now);
+        bodyOsc.frequency.exponentialRampToValueAtTime(110, now + 0.09);
+        bodyGain.gain.setValueAtTime(0.9, now);
+        bodyGain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+        bodyOsc.connect(bodyGain);
+        bodyGain.connect(ctx.destination);
+        bodyOsc.start(now);
+        bodyOsc.stop(now + 0.12);
+
+        // 3. Metallic ring chime harmonic (for coins and weighted tokens being hit)
+        var ringOsc = ctx.createOscillator();
+        var ringGain = ctx.createGain();
+        ringOsc.type = 'sine';
+        ringOsc.frequency.setValueAtTime(2200, now);
+        ringOsc.frequency.exponentialRampToValueAtTime(1100, now + 0.14);
+        ringGain.gain.setValueAtTime(0.25, now);
+        ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        ringOsc.connect(ringGain);
+        ringGain.connect(ctx.destination);
+        ringOsc.start(now);
+        ringOsc.stop(now + 0.16);
         break;
       }
       case 'check': {
@@ -475,6 +503,7 @@
     if (size < 260) size = 260;
 
     size = Math.floor(size / 8) * 8;
+    var sizeChanged = (size !== boardSize);
     boardSize = size;
     squareSize = size / 8;
 
@@ -485,7 +514,9 @@
       el['eval-bar'].style.height = size + 'px';
     }
 
-    renderPieces();
+    if (sizeChanged) {
+      renderPieces(true);
+    }
   }
 
   function applyMovementsLayout(side) {
@@ -530,14 +561,24 @@
     if (el['select-piece-style']) {
       el['select-piece-style'].value = style;
     }
-    renderPieces();
+    renderPieces(true);
   }
 
   // ---------------------------------------------------------------------------
   // 9. Grid & Pieces Rendering
   // ---------------------------------------------------------------------------
-  function buildGrid() {
+  var gridBuilt = false;
+  var lastGridFlipped = null;
+  var lastGridCoords = null;
+
+  function buildGrid(force) {
     if (!el.grid) return;
+    if (!force && gridBuilt && lastGridFlipped === flipped && lastGridCoords === settings.coords) {
+      return;
+    }
+    gridBuilt = true;
+    lastGridFlipped = flipped;
+    lastGridCoords = settings.coords;
     el.grid.textContent = '';
 
     for (var r = 0; r < 8; r++) {
@@ -617,13 +658,44 @@
     return settings.pieceStyle === 'coins' ? '#coin-' : '#piece-';
   }
 
-  function renderPieces() {
+  var lastRenderedFenPos = '';
+  var lastRenderedPieceStyle = '';
+  var lastRenderedPiecesFlipped = null;
+
+  function renderPieces(force) {
     if (!el.pieces) return;
-    el.pieces.textContent = '';
 
     var board = chessClient.board();
     var canMove = isLocalPlayerTurn();
     var prefix = getPieceSvgPrefix();
+    var fenPos = chessClient.fen().split(' ')[0];
+
+    // If board position, pieceStyle, and flip have not changed, only toggle classes on existing DOM elements without wiping!
+    if (!force && fenPos === lastRenderedFenPos && settings.pieceStyle === lastRenderedPieceStyle && flipped === lastRenderedPiecesFlipped && el.pieces.children.length > 0) {
+      var pieceEls = el.pieces.children;
+      for (var i = 0; i < pieceEls.length; i++) {
+        var pEl = pieceEls[i];
+        var sqIdx = parseInt(pEl.dataset.index, 10);
+        var pSide = pEl.dataset.side;
+
+        pEl.classList.toggle('is-selected', sqIdx === selectedSquare);
+        pEl.classList.toggle('is-ghost', isDragging && dragStartSquare === sqIdx);
+
+        if (canMove && pSide === state.localSide) {
+          var tgts = getLegalTargetsFor(sqIdx);
+          pEl.classList.toggle('is-movable', tgts.length > 0);
+        } else {
+          pEl.classList.remove('is-movable');
+        }
+      }
+      return;
+    }
+
+    lastRenderedFenPos = fenPos;
+    lastRenderedPieceStyle = settings.pieceStyle;
+    lastRenderedPiecesFlipped = flipped;
+
+    el.pieces.textContent = '';
 
     for (var r = 0; r < 8; r++) {
       for (var c = 0; c < 8; c++) {
@@ -1200,16 +1272,22 @@
   // ---------------------------------------------------------------------------
   function updateNotationTable() {
     if (!el['notation-tbody']) return;
-    el['notation-tbody'].textContent = '';
 
-    var history = chessClient.history();
+    var history = (state && state.history && state.history.length > 0)
+      ? state.history
+      : chessClient.history();
+
     if (el['move-ply-counter']) {
-      el['move-ply-counter'].textContent = history.length + ' plies';
+      var plies = history.length;
+      var numMoves = Math.ceil(plies / 2);
+      el['move-ply-counter'].textContent = numMoves + (numMoves === 1 ? ' move (' : ' moves (') + plies + ' plies)';
     }
 
     if (el['opening-name']) {
-      el['opening-name'].textContent = detectOpeningName();
+      el['opening-name'].textContent = detectOpeningName(history);
     }
+
+    el['notation-tbody'].textContent = '';
 
     for (var i = 0; i < history.length; i += 2) {
       var moveNum = Math.floor(i / 2) + 1;
@@ -1336,34 +1414,55 @@
       updateUserHeaderBadge();
     }
 
-    if (next.fen && next.fen !== chessClient.fen()) {
-      var prevFen = chessClient.fen();
-      chessClient.load(next.fen);
+    // Synchronize client chess engine with authoritative history to preserve move log
+    var prevFen = chessClient.fen();
+    var fenChanged = Boolean(next.fen && next.fen !== prevFen);
 
-      if (prev && prevFen !== next.fen) {
-        if (next.finished) {
-          if (next.localWon) {
-            playSound('win');
-            triggerConfettiExplosion();
-          } else if (String(next.gameOverHeadline || '').toLowerCase().indexOf('draw') >= 0) {
-            playSound('draw');
-          } else {
-            playSound('loss');
-            setRandomMotivationQuote();
-          }
-        } else if (chessClient.inCheck()) {
-          playSound('check');
-        } else {
-          var moves = chessClient.history({ verbose: true });
-          var last = moves[moves.length - 1];
-          if (last && last.captured) {
-            playSound('capture');
-          } else if (last && (last.flags.indexOf('k') >= 0 || last.flags.indexOf('q') >= 0)) {
-            playSound('castle');
-          } else {
-            playSound('move');
+    if (next.history && Array.isArray(next.history)) {
+      var curHist = chessClient.history();
+      var inSync = (curHist.length === next.history.length);
+      if (inSync) {
+        for (var h = 0; h < curHist.length; h++) {
+          if (curHist[h] !== next.history[h]) { inSync = false; break; }
+        }
+      }
+      if (!inSync) {
+        chessClient.reset();
+        for (var m = 0; m < next.history.length; m++) {
+          try {
+            chessClient.move(next.history[m]);
+          } catch (e) {
+            break;
           }
         }
+      }
+    }
+    if (chessClient.fen() !== next.fen && next.fen) {
+      chessClient.load(next.fen);
+    }
+
+    if (prev && fenChanged) {
+      var moves = chessClient.history({ verbose: true });
+      var last = moves.length > 0 ? moves[moves.length - 1] : null;
+
+      if (next.finished) {
+        if (next.localWon) {
+          playSound('win');
+          triggerConfettiExplosion();
+        } else if (String(next.gameOverHeadline || '').toLowerCase().indexOf('draw') >= 0) {
+          playSound('draw');
+        } else {
+          playSound('loss');
+          setRandomMotivationQuote();
+        }
+      } else if (last && last.captured) {
+        playSound('capture');
+      } else if (chessClient.inCheck()) {
+        playSound('check');
+      } else if (last && (last.flags.indexOf('k') >= 0 || last.flags.indexOf('q') >= 0)) {
+        playSound('castle');
+      } else {
+        playSound('move');
       }
     }
 
@@ -1457,8 +1556,10 @@
       showFloatingReaction(next.reaction.emoji, next.reaction.from);
     }
 
-    renderPieces();
-    renderHighlights();
+    if (!isDragging) {
+      renderPieces();
+      renderHighlights();
+    }
     updateNotationTable();
     updateCapturedPieces();
     updateEvaluation();
