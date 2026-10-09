@@ -85,7 +85,7 @@
   var blackClockSeconds = 600;
   var clockTimer = null;
   var isBotThinking = false;
-  var botCountdownSeconds = 4.0;
+  var botCountdownSeconds = 0.8;
   var botCountdownInterval = null;
 
   // Review Stepper
@@ -150,6 +150,7 @@
       'gameover-cheer-panel', 'gameover-cheer-text', 'gameover-motivation-panel', 'gameover-motivation-quote',
       'btn-modal-rematch', 'btn-modal-menu',
       'modal-resign-confirm', 'btn-confirm-resign', 'btn-cancel-resign',
+      'modal-resign-menu-confirm', 'btn-confirm-resign-menu', 'btn-cancel-resign-menu',
       'modal-settings', 'btn-settings-close', 'btn-settings-done',
       'setting-theme-select', 'setting-pieces-select', 'setting-soundpack-select',
       'setting-sound-toggle', 'setting-hints-toggle', 'setting-lastmove-toggle', 'setting-coords-toggle', 'setting-movements-toggle',
@@ -739,7 +740,10 @@
   }
 
   function getPieceSvgPrefix() {
-    return settings.pieceStyle === 'coins' ? '#coin-' : '#piece-';
+    if (settings.pieceStyle === 'woodcraft' || settings.pieceStyle === 'wood') return '#wood-';
+    if (settings.pieceStyle === 'token' || settings.pieceStyle === 'cyberpunk') return '#token-';
+    if (settings.pieceStyle === 'coin' || settings.pieceStyle === 'coins') return '#coin-';
+    return '#piece-';
   }
 
   var lastRenderedFenPos = '';
@@ -1145,9 +1149,9 @@
         checkAndHandleGameOver();
       }
 
-      // If playing vs computer, start 4-second thoughtful countdown!
+      // If playing vs computer, start responsive thinking indicator
       if (isSinglePlayer && !chessClient.isGameOver()) {
-        startBotThinkingTimer(4.0);
+        startBotThinkingTimer(0.8);
       }
 
       // Authoritative server sync
@@ -1173,27 +1177,27 @@
 
   function startBotThinkingTimer(seconds) {
     isBotThinking = true;
-    botCountdownSeconds = seconds;
+    botCountdownSeconds = seconds || 0.8;
 
     if (botCountdownInterval) clearInterval(botCountdownInterval);
 
     if (el['opp-status-text']) {
-      el['opp-status-text'].textContent = 'Thinking... (' + botCountdownSeconds.toFixed(1) + 's)';
+      el['opp-status-text'].textContent = 'Thinking...';
     }
     if (el['opp-status-dot']) el['opp-status-dot'].classList.add('is-active');
     if (el['you-status-text']) el['you-status-text'].textContent = 'Waiting for bot...';
     if (el['you-status-dot']) el['you-status-dot'].classList.remove('is-active');
 
     botCountdownInterval = setInterval(function () {
-      botCountdownSeconds -= 0.5;
+      botCountdownSeconds -= 0.1;
       if (botCountdownSeconds <= 0) {
         clearInterval(botCountdownInterval);
         botCountdownInterval = null;
-        if (el['opp-status-text']) el['opp-status-text'].textContent = 'Calculating move...';
-      } else if (el['opp-status-text']) {
-        el['opp-status-text'].textContent = 'Thinking... (' + Math.max(0, botCountdownSeconds).toFixed(1) + 's)';
+        if (el['opp-status-text'] && isBotThinking) {
+          el['opp-status-text'].textContent = 'Moving...';
+        }
       }
-    }, 500);
+    }, 100);
   }
 
   function showPromotionDialog(side) {
@@ -1561,6 +1565,7 @@
       isBotThinking = false;
       if (el['modal-gameover']) el['modal-gameover'].hidden = true;
       if (el['modal-resign-confirm']) el['modal-resign-confirm'].hidden = true;
+      if (el['modal-resign-menu-confirm']) el['modal-resign-menu-confirm'].hidden = true;
       if (el['screen-home']) el['screen-home'].hidden = false;
       if (el['screen-game']) el['screen-game'].hidden = true;
     } else {
@@ -1574,7 +1579,7 @@
       if (botCountdownInterval) clearInterval(botCountdownInterval);
       isBotThinking = false;
     } else if (next.thinking && isSinglePlayer) {
-      if (!isBotThinking) startBotThinkingTimer(4.0);
+      if (!isBotThinking) startBotThinkingTimer(0.8);
     }
 
     if (settings.autoFlip && !isSinglePlayer) {
@@ -1601,7 +1606,7 @@
     }
     if (el['opp-status-text']) {
       if (isBotThinking) {
-        el['opp-status-text'].textContent = 'Thinking... (' + botCountdownSeconds.toFixed(1) + 's)';
+        el['opp-status-text'].textContent = 'Thinking...';
       } else if (!next.connected && !next.singlePlayer) {
         el['opp-status-text'].textContent = 'Waiting for friend';
       } else {
@@ -2565,6 +2570,7 @@
       reviewPly = -1;
       if (el['modal-gameover']) el['modal-gameover'].hidden = true;
       if (el['modal-resign-confirm']) el['modal-resign-confirm'].hidden = true;
+      if (el['modal-resign-menu-confirm']) el['modal-resign-menu-confirm'].hidden = true;
       if (el['screen-game']) el['screen-game'].hidden = true;
       if (el['screen-home']) el['screen-home'].hidden = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -2577,12 +2583,47 @@
       });
     }
 
-    if (el['btn-action-menu']) el['btn-action-menu'].addEventListener('click', returnToMenu);
+    // Check if player is actively playing a match
+    function isGameActive() {
+      if (!userInGame) return false;
+      if (state && (state.gameOver || state.finished || state.mode === 'idle')) return false;
+      if (chessClient && chessClient.isGameOver()) return false;
+      return true;
+    }
+
+    // Return to menu handler with resign confirmation if game is active
+    function requestReturnToMenu() {
+      if (isGameActive()) {
+        if (el['modal-resign-menu-confirm']) el['modal-resign-menu-confirm'].hidden = false;
+      } else {
+        returnToMenu();
+      }
+    }
+
+    if (el['btn-confirm-resign-menu']) {
+      el['btn-confirm-resign-menu'].addEventListener('click', function () {
+        if (el['modal-resign-menu-confirm']) el['modal-resign-menu-confirm'].hidden = true;
+        apiPost('/api/resign').then(function () {
+          returnToMenu();
+          showToast('🏳️ You resigned and returned to the main menu.');
+        }).catch(function () {
+          returnToMenu();
+        });
+      });
+    }
+
+    if (el['btn-cancel-resign-menu']) {
+      el['btn-cancel-resign-menu'].addEventListener('click', function () {
+        if (el['modal-resign-menu-confirm']) el['modal-resign-menu-confirm'].hidden = true;
+      });
+    }
+
+    if (el['btn-action-menu']) el['btn-action-menu'].addEventListener('click', requestReturnToMenu);
     if (el['btn-modal-menu']) el['btn-modal-menu'].addEventListener('click', returnToMenu);
     if (el['btn-brand']) {
       el['btn-brand'].addEventListener('click', function (e) {
         e.preventDefault();
-        returnToMenu();
+        requestReturnToMenu();
       });
     }
 

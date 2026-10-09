@@ -47,31 +47,31 @@ app.use((req, res, next) => {
   next();
 });
 
-// Levels definition - calibrated to ~4.0 seconds response time as requested!
+// Levels definition - calibrated for fast, responsive play (<1s response)
 const LEVELS = [
   {
     id: 'simple',
     label: 'Beginner (800)',
-    blurb: 'Makes casual moves. Relaxed & fun.',
+    blurb: 'Fast casual moves. Relaxed & fun.',
     depth: 1,
-    thinkingMillis: 3800,
-    minimumThinkMillis: 4000
+    thinkingMillis: 250,
+    minimumThinkMillis: 200
   },
   {
     id: 'medium',
     label: 'Intermediate (1400)',
-    blurb: 'Plays solid tactical chess with thoughtful timing.',
+    blurb: 'Plays solid tactical chess with quick responses.',
     depth: 2,
-    thinkingMillis: 3900,
-    minimumThinkMillis: 4000
+    thinkingMillis: 450,
+    minimumThinkMillis: 350
   },
   {
     id: 'hard',
     label: 'Master (2000)',
-    blurb: 'Deep tactical search with grandmaster patience.',
+    blurb: 'Deep tactical search with snappy execution.',
     depth: 3,
-    thinkingMillis: 4000,
-    minimumThinkMillis: 4100
+    thinkingMillis: 600,
+    minimumThinkMillis: 450
   }
 ];
 
@@ -490,7 +490,7 @@ function chooseComputerMove(chess: Chess, level: string) {
   // 3. Alpha-beta tactical search with time guard (strictly finishes within 350ms!)
   const depth = level === 'hard' ? 3 : (level === 'medium' ? 2 : 1);
   const startTime = Date.now();
-  const maxComputeTime = 350; // max 350ms computation ensures total response < 1s
+  const maxComputeTime = 250; // max 250ms computation ensures total response well under 1s
 
   // Sort moves MVV-LVA for high pruning efficiency
   legalMoves.sort((a, b) => {
